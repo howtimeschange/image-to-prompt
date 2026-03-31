@@ -1,16 +1,24 @@
 {
   "manifest_version": 3,
   "name": "ImageToPrompt",
-  "version": "1.0.0",
-  "description": "右键图片 → AI 分析 → 生成详细 Prompt",
-  "permissions": [
-    "contextMenus",
-    "storage",
-    "activeTab",
-    "sidePanel",
-    "scripting"
-  ],
-  "host_permissions": ["<all_urls>"],
+  "version": "1.1.0",
+  "description": "右键任意网页图片，AI 深度分析生成专业绘图提示词",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_popup": "src/popup/index.html"
+  },
+  "side_panel": {
+    "default_path": "src/sidebar/index.html"
+  },
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"
@@ -22,20 +30,21 @@
       "run_at": "document_idle"
     }
   ],
-  "side_panel": {
-    "default_path": "src/sidebar/index.html"
-  },
-  "action": {
-    "default_popup": "src/popup/index.html",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "sidePanel",
+    "scripting",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "content/content-script.js"],
+      "matches": ["<all_urls>"]
     }
-  },
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
+  ]
 }
