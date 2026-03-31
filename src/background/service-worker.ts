@@ -95,14 +95,20 @@ const VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models
 const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview'
 const IMAGE_GEN_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent`
 
-// Prompt templates (中英双版输出)
+// Prompt templates — 莲生方法论：将视觉风格提取为 JSON 结构化数据
 const SYSTEM_PROMPTS: Record<string, string> = {
-  zh: `你是世界顶级的 AI 绘图提示词工程师。深度分析图片，只输出如下 JSON（无 markdown 标记）：
-{"subject_zh":"中文主体描述","subject":"English subject","style":"art style","composition":"composition","lighting":"lighting","color_palette":"colors","mood":"mood","technical":"specs","full_prompt":"完整英文提示词（直接可用于SD/MJ）","full_prompt_zh":"完整中文提示词","negative_prompt":"negative elements","negative_prompt_zh":"负向提示词中文版","tags":["标签1","标签2","标签3"]}`,
-  en: `You are a world-class AI prompt engineer. Output ONLY JSON (no markdown):
-{"subject_zh":"中文描述","subject":"English subject","style":"...","composition":"...","lighting":"...","color_palette":"...","mood":"...","technical":"...","full_prompt":"complete English prompt for SD/MJ","full_prompt_zh":"中文完整提示词","negative_prompt":"...","negative_prompt_zh":"负向中文","tags":["tag1","tag2","tag3"]}`,
-  ja: `画像を深く分析し、JSONのみ返してください：
-{"subject_zh":"中文描述","subject":"English","style":"...","composition":"...","lighting":"...","color_palette":"...","mood":"...","technical":"...","full_prompt":"SD/MJ English prompt","full_prompt_zh":"中文完整提示词","negative_prompt":"...","negative_prompt_zh":"负向中文","tags":["タグ1","タグ2"]}`,
+  zh: `将此视觉风格提取为 JSON 结构化数据：颜色、排版、构图、效果...
+
+只输出以下 JSON，不要有任何额外文字或 markdown：
+{"visual_style":{"overall_concept":{"theme":"主题风格名","mood":"氛围","keywords":["关键词1","关键词2","关键词3"]},"color_palette":{"dominant_colors":[{"name":"颜色名","hex":"#XXXXXX","description":"作用"}],"accent_colors":[{"name":"颜色名","hex":"#XXXXXX","description":"作用"}],"background_color":{"name":"颜色名","hex":"#XXXXXX","description":"描述"},"color_harmony":"配色方式"},"typography":{"has_text":false,"text_elements":[]},"composition":{"layout_type":"构图类型","focal_point":"视觉焦点","camera_angle":"机位","depth_of_field":"景深","pose_and_balance":"平衡感"},"effects_and_textures":{"texture":["质感1","质感2"],"lighting":{"type":"光线类型","direction":"方向"},"post_processing_vibe":"后期风格"},"subjects_and_props":{"subject":{"description":"主体","attire":"外观","expression":"神态"},"prop":{"description":"道具/环境"},"interaction":"反差或张力"}},"prompts":{"full_prompt":"整合所有视觉要素的完整英文提示词（直接用于SD/MJ/Nano Banana 2）","full_prompt_zh":"完整中文提示词","negative_prompt":"blurry, deformed, low quality, bad anatomy","negative_prompt_zh":"模糊、变形、低质量","keywords":["标签1","标签2","标签3"]}}`,
+  en: `Extract this visual style as structured JSON data: colors, typography, composition, effects...
+
+Output ONLY the JSON below, no extra text or markdown:
+{"visual_style":{"overall_concept":{"theme":"style name","mood":"mood","keywords":["kw1","kw2","kw3"]},"color_palette":{"dominant_colors":[{"name":"color","hex":"#XXXXXX","description":"role"}],"accent_colors":[{"name":"color","hex":"#XXXXXX","description":"role"}],"background_color":{"name":"color","hex":"#XXXXXX","description":"desc"},"color_harmony":"harmony method"},"typography":{"has_text":false,"text_elements":[]},"composition":{"layout_type":"type","focal_point":"focal","camera_angle":"angle","depth_of_field":"DOF","pose_and_balance":"balance"},"effects_and_textures":{"texture":["texture1"],"lighting":{"type":"type","direction":"direction"},"post_processing_vibe":"vibe"},"subjects_and_props":{"subject":{"description":"desc","attire":"attire","expression":"expression"},"prop":{"description":"prop"},"interaction":"tension"}},"prompts":{"full_prompt":"Complete English prompt for SD/MJ/Nano Banana 2","full_prompt_zh":"中文完整提示词","negative_prompt":"blurry, deformed, low quality","negative_prompt_zh":"模糊、变形、低质量","keywords":["tag1","tag2","tag3"]}}`,
+  ja: `この画像のビジュアルスタイルをJSON構造化データとして抽出してください：色、タイポグラフィ、構図、エフェクト...
+
+以下のJSONのみを出力：
+{"visual_style":{"overall_concept":{"theme":"スタイル","mood":"雰囲気","keywords":["kw1","kw2"]},"color_palette":{"dominant_colors":[{"name":"色","hex":"#XXXXXX","description":"役割"}],"accent_colors":[],"background_color":{"name":"色","hex":"#XXXXXX","description":"説明"},"color_harmony":"調和"},"typography":{"has_text":false,"text_elements":[]},"composition":{"layout_type":"構図","focal_point":"焦点","camera_angle":"アングル","depth_of_field":"被写界深度","pose_and_balance":"バランス"},"effects_and_textures":{"texture":["テクスチャ"],"lighting":{"type":"照明","direction":"方向"},"post_processing_vibe":"後処理"},"subjects_and_props":{"subject":{"description":"説明","attire":"服装","expression":"表情"},"prop":{"description":"小道具"},"interaction":"関係性"}},"prompts":{"full_prompt":"Complete English prompt","full_prompt_zh":"中文完整提示词","negative_prompt":"blurry, deformed","negative_prompt_zh":"模糊、变形","keywords":["tag1","tag2"]}}`,
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -253,11 +259,29 @@ function parseJSON(text: string) {
     .replace(/```\s*$/i, '')
     .trim()
   try {
-    const s = JSON.parse(cleaned)
+    const parsed = JSON.parse(cleaned)
+    const vs = parsed.visual_style ?? {}
+    const pr = parsed.prompts ?? {}
+    const structured = {
+      subject: vs.subjects_and_props?.subject?.description ?? '',
+      subject_zh: vs.subjects_and_props?.subject?.description ?? '',
+      style: vs.overall_concept?.theme ?? '',
+      composition: vs.composition?.layout_type ?? '',
+      lighting: vs.effects_and_textures?.lighting?.type ?? '',
+      color_palette: vs.color_palette?.color_harmony ?? '',
+      mood: vs.overall_concept?.mood ?? '',
+      technical: (vs.effects_and_textures?.texture ?? []).join(', '),
+      full_prompt: pr.full_prompt ?? '',
+      full_prompt_zh: pr.full_prompt_zh ?? '',
+      negative_prompt: pr.negative_prompt ?? '',
+      negative_prompt_zh: pr.negative_prompt_zh ?? '',
+      tags: Array.isArray(pr.keywords) ? pr.keywords : [],
+      visual_style: vs,
+    }
     return {
-      prompt: s.full_prompt ?? cleaned,
-      tags: Array.isArray(s.tags) ? s.tags : [],
-      structured: s,
+      prompt: structured.full_prompt || text,
+      tags: structured.tags,
+      structured,
     }
   } catch {
     return { prompt: text, tags: [], structured: null }
