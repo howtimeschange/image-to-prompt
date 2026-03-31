@@ -9,166 +9,139 @@ const VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models
 const IMAGE_GEN_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent`
 
 /**
- * 提示词方法论（参考：莲生的碎碎念"偷图神技"）
- * 核心思路：将图像视觉风格提取为 JSON 结构化数据，捕捉颜色、排版、构图、效果，
- * 以便精准复用和克隆该风格。
- *
- * JSON 结构：
- *   visual_style
- *     overall_concept    — 主题 / mood / 关键词
- *     color_palette      — 主色(hex) / 点缀色(hex) / 背景色 / 配色和谐方式
- *     typography         — 是否有文字 / 字体风格 / 特效
- *     composition        — 构图类型 / 焦点 / 机位 / 景深 / 姿势平衡
- *     effects_and_textures — 质感 / 光线方向与类型 / 后期风格
- *     subjects_and_props — 主体描述 / 道具 / 主体与道具的关系张力
- *   prompts
- *     full_prompt        — 整合所有要素的完整英文提示词（直接用于 SD/MJ/Nano Banana）
- *     full_prompt_zh     — 同上的中文版
- *     negative_prompt    — 英文负向提示词
- *     negative_prompt_zh — 中文负向提示词
- *     keywords           — 风格关键词 tags
+ * 提示词方法论：莲生"偷图神技"
+ * 输出完整 JSON 结构化分析，直接用于 AI 生图（SD/MJ/Flux/Sora）
+ * JSON 本身即为 prompt，无需再提取单独字段
  */
 
-const STYLE_EXTRACTION_PROMPT_ZH = `将此视觉风格提取为 JSON 结构化数据：颜色、排版、构图、效果...
+const STYLE_EXTRACTION_PROMPT_ZH = `你是一个专业的视觉分析师。分析这张图片，输出完整的视觉风格 JSON 数据。
 
-只输出如下结构的 JSON，不要有任何额外文字或 markdown 代码块标记：
+【输出要求】
+- 只输出 JSON，不要任何解释文字，不要 markdown 代码块标记
+- JSON 必须完整、合法、可被直接 parse
+- 所有字段都需要填写，不要留空
 
+输出以下 JSON 结构：
 {
-  "visual_style": {
-    "overall_concept": {
-      "theme": "核心主题风格名称（中英文）",
-      "mood": "氛围描述（如：严肃的滑稽、冷幽默、复古怀旧）",
-      "keywords": ["关键词1", "关键词2", "关键词3", "关键词4"]
+  "visual_style_analysis": {
+    "overall_aesthetic": {
+      "theme": "视觉主题（如：现代极简科技、赛博朋克霓虹、复古胶片摄影）",
+      "tone": "整体基调（如：专业干净、暗黑魔幻、温暖治愈）",
+      "target_vibe": "目标氛围关键词，3-5个，用于 prompt（如：cinematic, moody, editorial）"
     },
     "color_palette": {
-      "dominant_colors": [
-        { "name": "颜色名（中英）", "hex": "#XXXXXX", "description": "该颜色在画面中的作用和比重" }
+      "background": {
+        "primary": "#XXXXXX",
+        "description": "背景色描述和质感"
+      },
+      "brand_colors": [
+        { "name": "颜色名", "hex": "#XXXXXX", "usage": "在画面中的用途" }
       ],
+      "text_colors": {
+        "primary": "#XXXXXX",
+        "secondary": "#XXXXXX"
+      },
       "accent_colors": [
-        { "name": "颜色名（中英）", "hex": "#XXXXXX", "description": "点缀色的视觉作用" }
+        { "name": "颜色名", "hex": "#XXXXXX", "usage": "点缀用途" }
       ],
-      "background_color": { "name": "颜色名", "hex": "#XXXXXX", "description": "背景色描述" },
-      "color_harmony": "配色和谐方式（如：高反差对比、类比配色、单色渐变）"
-    },
-    "typography": {
-      "has_text": true或false,
-      "text_elements": [
-        { "content": "文字内容", "location": "位置", "font_style": { "family": "字体类别", "characteristics": "字体特征", "color": "颜色", "effect": "特效" } }
-      ]
+      "color_harmony": "配色关系（如：高反差对比、类比色系、单色渐变）"
     },
     "composition": {
-      "layout_type": "构图类型（如：中心对称、三分法、对角线）",
-      "focal_point": "视觉焦点描述",
-      "camera_angle": "机位（如：低平视角、俯视、平视）",
-      "depth_of_field": "景深（如：浅景深背景虚化、全清晰）",
-      "pose_and_balance": "姿势与画面平衡描述"
+      "layout": "构图类型（如：中心对称、三分法、满版出血）",
+      "focal_point": "视觉焦点位置和内容",
+      "white_space": "留白策略（如：大量留白极简、满版密集）",
+      "hierarchy": "视觉层级描述（主体→副标题→说明文字）"
     },
-    "effects_and_textures": {
-      "texture": ["质感1（如：浓重胶片颗粒感）", "质感2（如：老照片柔焦）"],
-      "lighting": {
-        "type": "光线类型（如：自然光漫反射、棚拍硬光）",
-        "direction": "光线方向与投影描述"
-      },
-      "post_processing_vibe": "后期处理风格（如：复古胶片扫描、HDR、黑白高对比）"
+    "lighting_and_effects": {
+      "lighting_type": "光线类型（如：柔光漫射、硬光棚拍、自然侧光）",
+      "shadow": "阴影风格",
+      "special_effects": ["特效1（如：景深虚化）", "特效2（如：胶片颗粒）"],
+      "post_processing": "后期调色风格（如：低饱和胶片感、高对比HDR）"
     },
-    "subjects_and_props": {
-      "subject": { "description": "主体描述", "attire": "服装/外观", "expression": "表情/神态" },
-      "prop": { "description": "道具或环境描述" },
-      "interaction": "主体与道具/环境之间的关系张力或反差"
+    "subject_analysis": {
+      "main_subject": "主体描述",
+      "supporting_elements": "辅助元素描述",
+      "texture": "主要质感（如：哑光金属、皮革纹理）",
+      "depth": "空间深度感描述"
+    },
+    "typography_style": {
+      "has_text": true,
+      "font_style": "字体风格（如：无衬线现代、粗体展示、手写风格）",
+      "text_layout": "文字排版描述"
+    },
+    "ai_generation_prompt": {
+      "positive_prompt_en": "完整英文生图提示词，直接用于 Midjourney/Stable Diffusion/Flux，包含：主体描述 + 风格词 + 光线 + 色彩 + 质感 + 技术参数，格式：主体, 风格词1, 风格词2, 光线描述, 色彩描述, --ar 1:1",
+      "positive_prompt_zh": "对应中文生图提示词",
+      "negative_prompt": "negative prompt: blurry, deformed, bad anatomy, low quality, watermark, text overlay",
+      "style_tags": ["风格标签1", "风格标签2", "风格标签3", "风格标签4", "风格标签5"]
     }
-  },
-  "prompts": {
-    "full_prompt": "整合以上所有视觉要素的完整英文提示词，可直接用于 Stable Diffusion / Midjourney / Nano Banana 2",
-    "full_prompt_zh": "完整中文提示词，与 full_prompt 内容等价，方便理解和二次修改",
-    "negative_prompt": "blurry, deformed, low quality, bad anatomy, watermark",
-    "negative_prompt_zh": "模糊、变形、低质量、解剖错误、水印",
-    "keywords": ["风格标签1", "风格标签2", "风格标签3"]
   }
 }`
 
-const STYLE_EXTRACTION_PROMPT_EN = `Extract this visual style as structured JSON data: colors, typography, composition, effects...
+const STYLE_EXTRACTION_PROMPT_EN = `You are a professional visual analyst. Analyze this image and output a complete visual style JSON.
 
-Output ONLY the following JSON structure, no extra text or markdown:
+REQUIREMENTS:
+- Output JSON only, no explanations, no markdown code blocks
+- All fields must be filled, no empty values
 
+Output this JSON structure:
 {
-  "visual_style": {
-    "overall_concept": {
-      "theme": "Core visual style name",
-      "mood": "Mood description",
-      "keywords": ["keyword1", "keyword2", "keyword3"]
+  "visual_style_analysis": {
+    "overall_aesthetic": {
+      "theme": "Visual theme (e.g. Modern Minimalist Tech, Cyberpunk Neon, Vintage Film Photography)",
+      "tone": "Overall tone (e.g. Professional Clean, Dark Fantasy, Warm Healing)",
+      "target_vibe": "3-5 atmosphere keywords for prompt (e.g. cinematic, moody, editorial)"
     },
     "color_palette": {
-      "dominant_colors": [
-        { "name": "Color name", "hex": "#XXXXXX", "description": "Role in composition" }
+      "background": {
+        "primary": "#XXXXXX",
+        "description": "Background color description and texture"
+      },
+      "brand_colors": [
+        { "name": "Color name", "hex": "#XXXXXX", "usage": "Usage in composition" }
       ],
+      "text_colors": {
+        "primary": "#XXXXXX",
+        "secondary": "#XXXXXX"
+      },
       "accent_colors": [
-        { "name": "Color name", "hex": "#XXXXXX", "description": "Accent role" }
+        { "name": "Color name", "hex": "#XXXXXX", "usage": "Accent purpose" }
       ],
-      "background_color": { "name": "Color name", "hex": "#XXXXXX", "description": "Background description" },
-      "color_harmony": "Color harmony method (e.g. High Contrast, Analogous, Monochromatic)"
-    },
-    "typography": {
-      "has_text": true or false,
-      "text_elements": [
-        { "content": "text", "location": "position", "font_style": { "family": "font family", "characteristics": "traits", "color": "color", "effect": "effect" } }
-      ]
+      "color_harmony": "Color relationship (e.g. High Contrast, Analogous, Monochromatic gradient)"
     },
     "composition": {
-      "layout_type": "Composition type (e.g. Center-weighted, Rule of thirds, Diagonal)",
-      "focal_point": "Visual focal point description",
-      "camera_angle": "Camera angle (e.g. Low-level, Bird's eye, Eye-level)",
-      "depth_of_field": "Depth of field (e.g. Shallow DOF with bokeh, Deep focus)",
-      "pose_and_balance": "Pose and visual balance"
+      "layout": "Composition type (e.g. Center-weighted, Rule of thirds, Full-bleed)",
+      "focal_point": "Focal point position and content",
+      "white_space": "White space strategy (e.g. Generous negative space, Dense full coverage)",
+      "hierarchy": "Visual hierarchy (Hero → Subheading → Body copy)"
     },
-    "effects_and_textures": {
-      "texture": ["texture1 (e.g. Heavy Film Grain)", "texture2 (e.g. Soft Focus)"],
-      "lighting": {
-        "type": "Lighting type (e.g. Natural diffused, Studio hard light)",
-        "direction": "Direction and shadow description"
-      },
-      "post_processing_vibe": "Post-processing style (e.g. Vintage film scan, HDR, High-contrast B&W)"
+    "lighting_and_effects": {
+      "lighting_type": "Lighting type (e.g. Soft diffused, Hard studio, Natural side light)",
+      "shadow": "Shadow style",
+      "special_effects": ["Effect 1 (e.g. Shallow DOF bokeh)", "Effect 2 (e.g. Film grain)"],
+      "post_processing": "Color grading (e.g. Desaturated film look, High-contrast HDR)"
     },
-    "subjects_and_props": {
-      "subject": { "description": "Subject description", "attire": "Outfit/appearance", "expression": "Expression/demeanor" },
-      "prop": { "description": "Prop or environment" },
-      "interaction": "Tension or contrast between subject and prop/environment"
+    "subject_analysis": {
+      "main_subject": "Main subject description",
+      "supporting_elements": "Supporting elements",
+      "texture": "Primary texture (e.g. Matte metal, Leather grain)",
+      "depth": "Spatial depth description"
+    },
+    "typography_style": {
+      "has_text": true,
+      "font_style": "Font style (e.g. Sans-serif modern, Bold display, Handwritten)",
+      "text_layout": "Text layout description"
+    },
+    "ai_generation_prompt": {
+      "positive_prompt_en": "Complete English prompt for Midjourney/Stable Diffusion/Flux: subject description + style words + lighting + color + texture + technical params, format: subject, style1, style2, lighting, color, --ar 1:1",
+      "positive_prompt_zh": "Corresponding Chinese generation prompt",
+      "negative_prompt": "negative prompt: blurry, deformed, bad anatomy, low quality, watermark, text overlay",
+      "style_tags": ["style tag1", "style tag2", "style tag3", "style tag4", "style tag5"]
     }
-  },
-  "prompts": {
-    "full_prompt": "Complete English prompt integrating all visual elements, ready for Stable Diffusion / Midjourney / Nano Banana 2",
-    "full_prompt_zh": "中文完整提示词",
-    "negative_prompt": "blurry, deformed, low quality, bad anatomy, watermark",
-    "negative_prompt_zh": "模糊、变形、低质量、解剖错误、水印",
-    "keywords": ["style tag1", "style tag2", "style tag3"]
   }
 }`
 
-const STYLE_EXTRACTION_PROMPT_JA = `この画像のビジュアルスタイルをJSON構造化データとして抽出してください：色、タイポグラフィ、構図、エフェクト...
-
-以下のJSON構造のみを出力し、余分なテキストやmarkdownは含めないでください：
-
-{
-  "visual_style": {
-    "overall_concept": { "theme": "スタイル名", "mood": "雰囲気", "keywords": ["キーワード1", "キーワード2"] },
-    "color_palette": {
-      "dominant_colors": [{ "name": "色名", "hex": "#XXXXXX", "description": "役割" }],
-      "accent_colors": [{ "name": "色名", "hex": "#XXXXXX", "description": "役割" }],
-      "background_color": { "name": "色名", "hex": "#XXXXXX", "description": "説明" },
-      "color_harmony": "配色の調和方法"
-    },
-    "typography": { "has_text": true, "text_elements": [] },
-    "composition": { "layout_type": "構図タイプ", "focal_point": "焦点", "camera_angle": "カメラアングル", "depth_of_field": "被写界深度", "pose_and_balance": "バランス" },
-    "effects_and_textures": { "texture": ["テクスチャ1"], "lighting": { "type": "照明タイプ", "direction": "方向" }, "post_processing_vibe": "後処理スタイル" },
-    "subjects_and_props": { "subject": { "description": "説明", "attire": "服装", "expression": "表情" }, "prop": { "description": "小道具" }, "interaction": "相互作用" }
-  },
-  "prompts": {
-    "full_prompt": "Complete English prompt for SD/MJ/Nano Banana 2",
-    "full_prompt_zh": "中文完整提示词",
-    "negative_prompt": "blurry, deformed, low quality",
-    "negative_prompt_zh": "模糊、变形、低质量",
-    "keywords": ["tag1", "tag2", "tag3"]
-  }
-}`
+const STYLE_EXTRACTION_PROMPT_JA = STYLE_EXTRACTION_PROMPT_EN
 
 const PROMPTS: Record<string, string> = {
   zh: STYLE_EXTRACTION_PROMPT_ZH,
@@ -177,42 +150,50 @@ const PROMPTS: Record<string, string> = {
 }
 
 export interface VisualStyleData {
-  overall_concept: {
+  overall_aesthetic?: {
     theme: string
-    mood: string
-    keywords: string[]
+    tone: string
+    target_vibe: string
   }
-  color_palette: {
-    dominant_colors: Array<{ name: string; hex: string; description: string }>
-    accent_colors: Array<{ name: string; hex: string; description: string }>
-    background_color: { name: string; hex: string; description: string }
-    color_harmony: string
+  color_palette?: {
+    background?: { primary: string; description: string }
+    brand_colors?: Array<{ name: string; hex: string; usage: string }>
+    text_colors?: { primary: string; secondary?: string }
+    accent_colors?: Array<{ name: string; hex: string; usage: string }>
+    color_harmony?: string
   }
-  typography: {
+  composition?: {
+    layout?: string
+    focal_point?: string
+    white_space?: string
+    hierarchy?: string
+  }
+  lighting_and_effects?: {
+    lighting_type?: string
+    shadow?: string
+    special_effects?: string[]
+    post_processing?: string
+  }
+  subject_analysis?: {
+    main_subject?: string
+    supporting_elements?: string
+    texture?: string
+    depth?: string
+  }
+  typography_style?: {
     has_text: boolean
-    text_elements: Array<any>
+    font_style?: string
+    text_layout?: string
   }
-  composition: {
-    layout_type: string
-    focal_point: string
-    camera_angle: string
-    depth_of_field: string
-    pose_and_balance: string
-  }
-  effects_and_textures: {
-    texture: string[]
-    lighting: { type: string; direction: string }
-    post_processing_vibe: string
-  }
-  subjects_and_props: {
-    subject: { description: string; attire: string; expression: string }
-    prop: { description: string }
-    interaction: string
+  ai_generation_prompt?: {
+    positive_prompt_en: string
+    positive_prompt_zh: string
+    negative_prompt: string
+    style_tags: string[]
   }
 }
 
 export interface StructuredPrompt {
-  // 兼容旧字段（直接访问）
   subject_zh: string
   subject: string
   style: string
@@ -226,8 +207,9 @@ export interface StructuredPrompt {
   negative_prompt: string
   negative_prompt_zh: string
   tags: string[]
-  // 新增：完整视觉风格数据
   visual_style?: VisualStyleData
+  /** 原始完整 JSON 字符串，用于展示 */
+  raw_json?: string
 }
 
 // ── 图片分析 ──────────────────────────────────────────────────────────────────
@@ -266,8 +248,8 @@ export async function analyzeImageWithGemini(
         },
       ],
       generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 4096,
+        temperature: 0.3,
+        maxOutputTokens: 8192,
         responseMimeType: 'application/json',
       },
     }),
@@ -312,7 +294,7 @@ export async function continueChat(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
     }),
   })
 
@@ -379,7 +361,13 @@ async function fetchImageAsBase64(url: string): Promise<string> {
   })
 }
 
-function parseStructuredResponse(text: string): AIAnalysisResult & { structured?: StructuredPrompt } {
+export type AIAnalysisResult = {
+  prompt: string
+  tags: string[]
+  structured?: StructuredPrompt
+}
+
+function parseStructuredResponse(text: string): AIAnalysisResult {
   const cleaned = text
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
@@ -388,25 +376,25 @@ function parseStructuredResponse(text: string): AIAnalysisResult & { structured?
 
   try {
     const parsed = JSON.parse(cleaned)
-    const vs: VisualStyleData = parsed.visual_style ?? {}
-    const pr = parsed.prompts ?? {}
+    const vsa = parsed.visual_style_analysis ?? parsed.visual_style ?? {}
+    const gen = vsa.ai_generation_prompt ?? vsa.prompts ?? {}
 
-    // 将新结构映射到兼容字段
     const structured: StructuredPrompt = {
-      subject: vs.subjects_and_props?.subject?.description ?? '',
-      subject_zh: vs.subjects_and_props?.subject?.description ?? '',
-      style: vs.overall_concept?.theme ?? '',
-      composition: vs.composition?.layout_type ?? '',
-      lighting: vs.effects_and_textures?.lighting?.type ?? '',
-      color_palette: vs.color_palette?.color_harmony ?? '',
-      mood: vs.overall_concept?.mood ?? '',
-      technical: vs.effects_and_textures?.texture?.join(', ') ?? '',
-      full_prompt: pr.full_prompt ?? '',
-      full_prompt_zh: pr.full_prompt_zh ?? '',
-      negative_prompt: pr.negative_prompt ?? '',
-      negative_prompt_zh: pr.negative_prompt_zh ?? '',
-      tags: Array.isArray(pr.keywords) ? pr.keywords : [],
-      visual_style: vs,
+      subject: vsa.subject_analysis?.main_subject ?? vsa.subjects_and_props?.subject?.description ?? '',
+      subject_zh: vsa.subject_analysis?.main_subject ?? '',
+      style: vsa.overall_aesthetic?.theme ?? vsa.overall_concept?.theme ?? '',
+      composition: vsa.composition?.layout ?? vsa.composition?.layout_type ?? '',
+      lighting: vsa.lighting_and_effects?.lighting_type ?? vsa.effects_and_textures?.lighting?.type ?? '',
+      color_palette: vsa.color_palette?.color_harmony ?? '',
+      mood: vsa.overall_aesthetic?.tone ?? vsa.overall_concept?.mood ?? '',
+      technical: (vsa.lighting_and_effects?.special_effects ?? vsa.effects_and_textures?.texture ?? []).join(', '),
+      full_prompt: gen.positive_prompt_en ?? gen.full_prompt ?? '',
+      full_prompt_zh: gen.positive_prompt_zh ?? gen.full_prompt_zh ?? '',
+      negative_prompt: gen.negative_prompt ?? '',
+      negative_prompt_zh: gen.negative_prompt ?? '',
+      tags: Array.isArray(gen.style_tags) ? gen.style_tags : (Array.isArray(gen.keywords) ? gen.keywords : []),
+      visual_style: vsa,
+      raw_json: JSON.stringify(parsed, null, 2),
     }
 
     return {
@@ -415,6 +403,15 @@ function parseStructuredResponse(text: string): AIAnalysisResult & { structured?
       structured,
     }
   } catch {
-    return { prompt: text, tags: [] }
+    return {
+      prompt: text,
+      tags: [],
+      structured: {
+        subject: '', subject_zh: '', style: '', composition: '',
+        lighting: '', color_palette: '', mood: '', technical: '',
+        full_prompt: text, full_prompt_zh: '', negative_prompt: '', negative_prompt_zh: '',
+        tags: [], raw_json: text,
+      },
+    }
   }
 }

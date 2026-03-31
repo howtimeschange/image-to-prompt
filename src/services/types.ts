@@ -33,6 +33,8 @@ export interface StructuredPrompt {
   negative_prompt: string
   negative_prompt_zh: string
   tags: string[]
+  /** 原始完整 JSON 字符串，直接展示给用户 */
+  raw_json?: string
 }
 
 export interface HistoryItem {

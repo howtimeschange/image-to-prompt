@@ -7,21 +7,17 @@ import type { VisualStyleData } from '../services/gemini'
 
 // ── Color swatch ─────────────────────────────────────────────────────────────
 
-function ColorSwatch({ hex, name, desc }: { hex: string; name: string; desc?: string }) {
+function ColorSwatch({ hex, name }: { hex: string; name: string }) {
   const [tip, setTip] = React.useState(false)
   return (
     <button
       className="group flex items-center gap-2 text-left"
       onClick={() => { navigator.clipboard.writeText(hex); setTip(true); setTimeout(() => setTip(false), 1500) }}
-      title={desc}
     >
-      <span
-        className="h-5 w-5 shrink-0 rounded-full border border-white/10 shadow-inner"
-        style={{ background: hex }}
-      />
-      <span className="text-[11px] leading-none">
-        <span className="block font-mono text-[10px] text-zinc-400">{tip ? '✓ copied' : hex}</span>
-        <span className="block text-zinc-500 mt-0.5 truncate max-w-[120px]">{name}</span>
+      <span className="h-4 w-4 shrink-0 rounded-full border border-white/10 shadow-inner" style={{ background: hex }} />
+      <span className="text-[10px] leading-none">
+        <span className="block font-mono text-[10px] text-zinc-500">{tip ? '✓' : hex}</span>
+        <span className="block text-zinc-600 truncate max-w-[100px]">{name}</span>
       </span>
     </button>
   )
@@ -30,103 +26,115 @@ function ColorSwatch({ hex, name, desc }: { hex: string; name: string; desc?: st
 // ── Palette strip ─────────────────────────────────────────────────────────────
 
 function PaletteStrip({ vs }: { vs: VisualStyleData }) {
-  const all = [
-    ...(vs.color_palette?.dominant_colors ?? []),
+  // new format
+  const colors = [
+    ...(vs.color_palette?.brand_colors ?? []),
     ...(vs.color_palette?.accent_colors ?? []),
-    ...(vs.color_palette?.background_color ? [vs.color_palette.background_color] : []),
-  ]
-  if (!all.length) return null
+    vs.color_palette?.background ? [{ hex: vs.color_palette.background.primary, name: 'BG', usage: '' }] : [],
+  ].flat().filter((c: any) => c?.hex)
+
+  if (!colors.length) return null
   return (
-    <div className="flex gap-1">
-      {all.map((c, i) => (
+    <div className="flex gap-0.5 h-8">
+      {colors.map((c: any, i: number) => (
         <button
           key={i}
           onClick={() => navigator.clipboard.writeText(c.hex)}
-          className="h-8 flex-1 rounded transition-transform hover:scale-105 hover:z-10"
+          className="flex-1 rounded transition-transform hover:scale-105 hover:z-10"
           style={{ background: c.hex }}
-          title={`${c.name} — ${c.hex}\n${c.description}`}
+          title={`${c.name} — ${c.hex}`}
         />
       ))}
     </div>
   )
 }
 
-// ── Visual style detail panel ─────────────────────────────────────────────────
+// ── JSON Code Block ───────────────────────────────────────────────────────────
 
-function StyleDetail({ vs }: { vs: VisualStyleData }) {
+function JsonBlock({ json, onCopy }: { json: string; onCopy: () => void }) {
+  const [copied, setCopied] = React.useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(json)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    onCopy()
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Color grid */}
-      {vs.color_palette && (
-        <section>
-          <p className="label-xs mb-2">色板</p>
-          <PaletteStrip vs={vs} />
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
-            {[
-              ...(vs.color_palette.dominant_colors ?? []),
-              ...(vs.color_palette.accent_colors ?? []),
-            ].map((c, i) => (
-              <ColorSwatch key={i} hex={c.hex} name={c.name} desc={c.description} />
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 italic">
-            {vs.color_palette.color_harmony}
-          </p>
-        </section>
-      )}
+    <div className="relative">
+      <pre
+        style={{
+          margin: 0,
+          padding: '12px 14px',
+          background: 'rgba(255,255,255,0.025)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: 8,
+          fontSize: 10.5,
+          lineHeight: 1.7,
+          color: 'rgba(255,255,255,0.65)',
+          fontFamily: '"SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'anywhere',
+          // NO max-height — show everything
+        }}
+      >
+        {json}
+      </pre>
+      <button
+        onClick={handleCopy}
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          padding: '3px 8px',
+          borderRadius: 5,
+          border: '1px solid rgba(255,255,255,0.1)',
+          background: copied ? 'rgba(22,163,74,0.8)' : 'rgba(255,255,255,0.06)',
+          color: copied ? '#fff' : 'rgba(255,255,255,0.4)',
+          fontSize: 10,
+          fontWeight: 600,
+          cursor: 'pointer',
+          transition: 'all 0.15s',
+          letterSpacing: '0.04em',
+        }}
+      >
+        {copied ? '✓ Copied' : 'Copy'}
+      </button>
+    </div>
+  )
+}
 
-      {/* Composition */}
-      {vs.composition && (
-        <section>
-          <p className="label-xs mb-2">构图</p>
-          <dl className="space-y-1.5">
-            {[
-              ['类型', vs.composition.layout_type],
-              ['焦点', vs.composition.focal_point],
-              ['机位', vs.composition.camera_angle],
-              ['景深', vs.composition.depth_of_field],
-            ].filter(([, v]) => v).map(([k, v]) => (
-              <div key={k} className="flex gap-2 text-[11px]">
-                <dt className="w-[3.5rem] shrink-0 text-zinc-600">{k}</dt>
-                <dd className="text-zinc-400 leading-relaxed">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+// ── Chat message bubble ───────────────────────────────────────────────────────
 
-      {/* Lighting & texture */}
-      {vs.effects_and_textures && (
-        <section>
-          <p className="label-xs mb-2">光线与质感</p>
-          <div className="space-y-1 text-[11px] text-zinc-400 leading-relaxed">
-            {vs.effects_and_textures.lighting?.type && (
-              <p>{vs.effects_and_textures.lighting.type}</p>
-            )}
-            {vs.effects_and_textures.lighting?.direction && (
-              <p className="text-zinc-500">{vs.effects_and_textures.lighting.direction}</p>
-            )}
-            {vs.effects_and_textures.texture?.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {vs.effects_and_textures.texture.map((t, i) => (
-                  <span key={i} className="tag-pill">{t}</span>
-                ))}
-              </div>
-            )}
-            {vs.effects_and_textures.post_processing_vibe && (
-              <p className="italic text-zinc-500">{vs.effects_and_textures.post_processing_vibe}</p>
-            )}
-          </div>
-        </section>
-      )}
+function ChatBubble({ role, content }: { role: 'user' | 'assistant'; content: string }) {
+  // Try to detect if content is JSON
+  const isJson = content.trimStart().startsWith('{') || content.trimStart().startsWith('[')
 
-      {/* Subject & props */}
-      {vs.subjects_and_props?.interaction && (
-        <section>
-          <p className="label-xs mb-1">主体与张力</p>
-          <p className="text-[11px] leading-relaxed text-zinc-400">{vs.subjects_and_props.interaction}</p>
-        </section>
-      )}
+  return (
+    <div className={`flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+      <div
+        style={{
+          maxWidth: role === 'user' ? '88%' : '100%',
+          width: role === 'assistant' ? '100%' : undefined,
+          borderRadius: role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+          padding: '10px 13px',
+          background: role === 'user' ? 'rgba(255,255,255,0.08)' : 'transparent',
+          border: role === 'assistant' ? '1px solid rgba(255,255,255,0.06)' : 'none',
+          fontSize: isJson ? 10.5 : 12,
+          lineHeight: 1.65,
+          color: role === 'user' ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)',
+          fontFamily: isJson
+            ? '"SF Mono", "Fira Code", monospace'
+            : '-apple-system, BlinkMacSystemFont, sans-serif',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {content}
+      </div>
     </div>
   )
 }
@@ -137,8 +145,7 @@ export default function App() {
   const store = useAppStore()
   const { analyzeImage, sendChatMessage } = useAI()
   const [chatInput, setChatInput] = React.useState('')
-  const [copied, setCopied] = React.useState<'full' | 'negative' | null>(null)
-  const [promptLang, setPromptLang] = React.useState<'en' | 'zh'>('en')
+  const [copied, setCopied] = React.useState(false)
   const [expandStyle, setExpandStyle] = React.useState(false)
   const chatEndRef = React.useRef<HTMLDivElement>(null)
 
@@ -155,7 +162,7 @@ export default function App() {
     }
     chrome.runtime.onMessage.addListener(listener)
     const poll = setInterval(async () => {
-      const d = await chrome.storage.local.get(['pendingImage', 'pendingClear', 'currentImageUrl', 'currentImageBase64'])
+      const d = await chrome.storage.local.get(['pendingImage', 'currentImageUrl', 'currentImageBase64'])
       if (d.pendingImage && d.currentImageUrl) {
         store.clearMessages(); store.setPrompt(''); store.setTags([])
         store.setStructured(null); store.setError(null)
@@ -175,19 +182,6 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [store.messages])
 
-  const getCopyText = (type: 'full' | 'negative') => {
-    const s = store.structured
-    if (type === 'full') return promptLang === 'zh' ? (s?.full_prompt_zh ?? s?.full_prompt ?? store.prompt) : (s?.full_prompt ?? store.prompt)
-    return promptLang === 'zh' ? (s?.negative_prompt_zh ?? s?.negative_prompt ?? '') : (s?.negative_prompt ?? '')
-  }
-
-  const handleCopy = (type: 'full' | 'negative') => {
-    const text = getCopyText(type)
-    if (!text) return
-    navigator.clipboard.writeText(text)
-    setCopied(type); setTimeout(() => setCopied(null), 2000)
-  }
-
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     if (!chatInput.trim()) return
@@ -197,37 +191,84 @@ export default function App() {
   const handleLoadHistory = (item: any) => {
     store.setImage(item.imageUrl, item.imageBase64 ?? null)
     store.setPrompt(item.prompt); store.setTags(item.tags)
+    if (item.structured) store.setStructured(item.structured)
     store.setActiveTab('chat')
   }
 
   const s = store.structured
   const vs = s?.visual_style as VisualStyleData | undefined
+  const rawJson = s?.raw_json ?? ''
   const hasResult = !!(s || store.prompt)
+
+  // Extract dominant color for accent strip
+  const accentColors = [
+    ...(vs?.color_palette?.brand_colors ?? []),
+    ...(vs?.color_palette?.accent_colors ?? []),
+  ].filter((c: any) => c?.hex).slice(0, 8)
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-[#0c0c0e] text-white">
       <SettingsPanel />
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] font-semibold tracking-tight text-white/90">ImageToPrompt</span>
-          {s && (
-            <span className="rounded-sm bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium tracking-widest text-zinc-500 uppercase">
-              {vs?.overall_concept?.theme?.slice(0, 18) ?? 'Style'}
+      <header className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <span style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.28)',
+          }}>
+            ImageToPrompt
+          </span>
+          {s?.style && (
+            <span style={{
+              borderRadius: 3,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              padding: '2px 6px',
+              fontSize: 10,
+              fontWeight: 500,
+              color: 'rgba(255,255,255,0.35)',
+              letterSpacing: '0.02em',
+              maxWidth: 160,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {s.style}
             </span>
           )}
         </div>
         <button
           onClick={() => store.setShowSettings(true)}
-          className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-600 transition-colors hover:bg-white/[0.06] hover:text-zinc-400"
+          style={{
+            padding: '4px 8px',
+            borderRadius: 6,
+            border: '1px solid rgba(255,255,255,0.07)',
+            background: 'rgba(255,255,255,0.03)',
+            color: 'rgba(255,255,255,0.35)',
+            fontSize: 11,
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.35)'
+          }}
         >
           Settings
         </button>
       </header>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-      <nav className="flex border-b border-white/[0.06]">
+      <nav className="flex border-b border-white/[0.06] shrink-0">
         {(['chat', 'history'] as const).map((tab) => (
           <button
             key={tab}
@@ -254,28 +295,33 @@ export default function App() {
 
             {/* Image */}
             {store.currentImageUrl ? (
-              <div className="relative border-b border-white/[0.06] bg-black">
+              <div className="relative border-b border-white/[0.06] bg-black shrink-0">
                 <img
                   src={store.currentImageUrl}
                   alt=""
-                  className="w-full max-h-48 object-contain"
+                  className="w-full max-h-44 object-contain"
                   onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.2' }}
                 />
-                {vs && (
-                  <div className="absolute inset-x-0 bottom-0 flex gap-0.5">
-                    {[
-                      ...(vs.color_palette?.dominant_colors ?? []),
-                      ...(vs.color_palette?.accent_colors ?? []),
-                    ].slice(0, 8).map((c, i) => (
-                      <div key={i} className="h-1 flex-1" style={{ background: c.hex }} />
+                {accentColors.length > 0 && (
+                  <div className="absolute inset-x-0 bottom-0 flex gap-0">
+                    {accentColors.map((c: any, i: number) => (
+                      <div key={i} className="h-[3px] flex-1" style={{ background: c.hex }} />
                     ))}
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                <div className="h-10 w-10 rounded-full border border-white/[0.08] flex items-center justify-center">
-                  <span className="text-lg opacity-30">⊞</span>
+                <div style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <span style={{ fontSize: 18, opacity: 0.2 }}>⊞</span>
                 </div>
                 <p className="text-[12px] text-zinc-600">右键点击网页任意图片开始分析</p>
               </div>
@@ -283,10 +329,10 @@ export default function App() {
 
             {/* Loading */}
             {store.isLoading && (
-              <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
-                <span className="inline-flex gap-0.5">
+              <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3 shrink-0">
+                <span className="inline-flex gap-1">
                   {[0, 1, 2].map(i => (
-                    <span key={i} className="h-1 w-1 rounded-full bg-white/30"
+                    <span key={i} className="h-1 w-1 rounded-full bg-white/25"
                       style={{ animation: `pulse 1s ${i * 0.2}s ease-in-out infinite` }} />
                   ))}
                 </span>
@@ -302,13 +348,13 @@ export default function App() {
             )}
 
             {/* Concept bar */}
-            {vs?.overall_concept && (
-              <div className="border-b border-white/[0.06] px-4 py-3">
-                <p className="text-[13px] font-medium text-white/80 leading-snug">{vs.overall_concept.theme}</p>
-                <p className="mt-0.5 text-[11px] text-zinc-500">{vs.overall_concept.mood}</p>
-                {vs.overall_concept.keywords?.length > 0 && (
+            {(s?.style || s?.mood) && (
+              <div className="border-b border-white/[0.06] px-4 py-3 shrink-0">
+                {s?.style && <p className="text-[13px] font-semibold text-white/80 leading-snug">{s.style}</p>}
+                {s?.mood && <p className="mt-0.5 text-[11px] text-zinc-500">{s.mood}</p>}
+                {s?.tags?.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {vs.overall_concept.keywords.map((k) => (
+                    {s.tags.map((k) => (
                       <span key={k} className="tag-pill">{k}</span>
                     ))}
                   </div>
@@ -316,176 +362,197 @@ export default function App() {
               </div>
             )}
 
-            {/* Prompt section */}
-            {hasResult && (
-              <div className="border-b border-white/[0.06] px-4 py-4">
-                {/* Lang toggle */}
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="label-xs">Prompt</p>
-                  <div className="flex rounded-md border border-white/[0.08] overflow-hidden">
-                    {(['en', 'zh'] as const).map((lang) => (
-                      <button
-                        key={lang}
-                        onClick={() => setPromptLang(lang)}
-                        className={`px-2.5 py-1 text-[10px] font-semibold tracking-wider uppercase transition-colors ${
-                          promptLang === lang
-                            ? 'bg-white/10 text-white/80'
-                            : 'text-zinc-600 hover:text-zinc-400'
-                        }`}
-                      >
-                        {lang === 'en' ? 'EN' : '中'}
-                      </button>
-                    ))}
-                  </div>
+            {/* Color palette */}
+            {vs && (
+              <div className="border-b border-white/[0.06] px-4 py-3 shrink-0">
+                <p className="label-xs mb-2">色板</p>
+                <PaletteStrip vs={vs} />
+                <div className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1.5">
+                  {[
+                    ...(vs.color_palette?.brand_colors ?? []),
+                    ...(vs.color_palette?.accent_colors ?? []),
+                  ].slice(0, 6).map((c: any, i: number) => (
+                    <ColorSwatch key={i} hex={c.hex} name={c.name} />
+                  ))}
                 </div>
-
-                {/* Editable prompt */}
-                <textarea
-                  value={promptLang === 'zh' ? (s?.full_prompt_zh ?? s?.full_prompt ?? store.prompt) : (s?.full_prompt ?? store.prompt)}
-                  onChange={(e) => {
-                    if (!s) { store.setPrompt(e.target.value); return }
-                    if (promptLang === 'zh') store.setStructured({ ...s, full_prompt_zh: e.target.value })
-                    else store.setStructured({ ...s, full_prompt: e.target.value })
-                  }}
-                  rows={6}
-                  className="prompt-textarea"
-                  style={{ minHeight: '120px', maxHeight: '360px' }}
-                  spellCheck={false}
-                />
-
-                {/* Copy full */}
-                <button
-                  onClick={() => handleCopy('full')}
-                  className={`mt-2 w-full rounded-md py-2 text-[11px] font-medium transition-colors ${
-                    copied === 'full'
-                      ? 'bg-white/10 text-white/70'
-                      : 'bg-white/[0.05] text-zinc-500 hover:bg-white/[0.08] hover:text-zinc-300'
-                  }`}
-                >
-                  {copied === 'full' ? 'Copied' : 'Copy Prompt'}
-                </button>
-
-                {/* Negative prompt */}
-                {(s?.negative_prompt || s?.negative_prompt_zh) && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="label-xs text-red-500/60">Negative</p>
-                      <button
-                        onClick={() => handleCopy('negative')}
-                        className="text-[10px] text-zinc-700 hover:text-zinc-500 transition-colors"
-                      >
-                        {copied === 'negative' ? '✓' : 'copy'}
-                      </button>
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-red-400/50 font-mono">
-                      {promptLang === 'zh' ? (s?.negative_prompt_zh ?? s?.negative_prompt) : s?.negative_prompt}
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Style details — collapsible */}
+            {/* JSON result — main content */}
+            {hasResult && rawJson && (
+              <div className="border-b border-white/[0.06] px-4 py-4">
+                <div className="mb-2.5 flex items-center justify-between">
+                  <p className="label-xs">Visual Style JSON</p>
+                  <div className="flex items-center gap-2">
+                    {store.currentImageUrl && !store.isLoading && (
+                      <button
+                        onClick={analyzeImage}
+                        className="text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors"
+                      >
+                        ↺ 重新分析
+                      </button>
+                    )}
+                    <div className="flex rounded border border-white/[0.07] overflow-hidden">
+                      {(['zh', 'en', 'ja'] as const).map((lang) => (
+                        <button
+                          key={lang}
+                          onClick={() => store.setLanguage(lang)}
+                          className={`px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+                            store.language === lang
+                              ? 'bg-white/10 text-white/70'
+                              : 'text-zinc-700 hover:text-zinc-500'
+                          }`}
+                        >
+                          {lang.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <JsonBlock json={rawJson} onCopy={() => setCopied(true)} />
+              </div>
+            )}
+
+            {/* Positive prompt quick-copy */}
+            {s?.full_prompt && (
+              <div className="border-b border-white/[0.06] px-4 py-3 shrink-0">
+                <p className="label-xs mb-2">Positive Prompt</p>
+                <p style={{
+                  fontSize: 11,
+                  lineHeight: 1.7,
+                  color: 'rgba(255,255,255,0.55)',
+                  fontFamily: '"SF Mono", monospace',
+                  wordBreak: 'break-word',
+                }}>
+                  {s.full_prompt}
+                </p>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(s.full_prompt); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                  style={{
+                    marginTop: 8,
+                    width: '100%',
+                    padding: '7px 0',
+                    borderRadius: 8,
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    background: 'rgba(255,255,255,0.04)',
+                    color: 'rgba(255,255,255,0.4)',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {copied ? '✓ Copied' : 'Copy Prompt'}
+                </button>
+              </div>
+            )}
+
+            {/* Visual Style collapsible detail */}
             {vs && (
               <div className="border-b border-white/[0.06]">
                 <button
                   onClick={() => setExpandStyle(!expandStyle)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-[11px] text-zinc-600 hover:text-zinc-400 transition-colors"
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors"
                 >
-                  <span className="font-medium tracking-wide uppercase text-[10px]">Visual Style Data</span>
+                  <span className="font-semibold tracking-wide uppercase">Detail Fields</span>
                   <span className="text-zinc-700">{expandStyle ? '−' : '+'}</span>
                 </button>
                 {expandStyle && (
-                  <div className="px-4 pb-4">
-                    <StyleDetail vs={vs} />
+                  <div className="px-4 pb-3 space-y-1.5">
+                    {[
+                      ['主体', s?.subject],
+                      ['构图', s?.composition],
+                      ['光线', s?.lighting],
+                      ['氛围', s?.mood],
+                      ['技术', s?.technical],
+                    ].filter(([, v]) => v).map(([k, v]) => (
+                      <div key={k} className="flex gap-2 text-[11px]">
+                        <dt className="w-10 shrink-0 text-zinc-700">{k}</dt>
+                        <dd className="text-zinc-500 leading-relaxed">{v}</dd>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Chat messages */}
+            {/* Chat messages — follow-up conversation */}
             {store.messages.length > 1 && (
-              <div className="space-y-2 px-4 py-3">
+              <div className="space-y-3 px-4 py-3">
                 {store.messages.slice(1).map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`w-full rounded-xl px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-wrap break-words ${
-                      msg.role === 'user'
-                        ? 'bg-white/[0.08] text-white/80 max-w-[88%]'
-                        : 'text-zinc-300'
-                    }`}>
-                      {msg.content}
-                    </div>
-                  </div>
+                  <ChatBubble key={msg.id} role={msg.role} content={msg.content} />
                 ))}
               </div>
             )}
             <div ref={chatEndRef} />
-
           </div>
         )}
       </div>
 
-      {/* ── Footer toolbar ────────────────────────────────────────────────── */}
-      {store.activeTab === 'chat' && (
-        <footer className="border-t border-white/[0.06] px-3 py-2.5 space-y-2">
-          {/* Controls row */}
-          <div className="flex items-center justify-between gap-2">
-            {/* Language (output) */}
-            <div className="flex items-center gap-0.5 rounded-md border border-white/[0.07] overflow-hidden">
-              {(['zh', 'en', 'ja'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => store.setLanguage(lang)}
-                  className={`px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-                    store.language === lang
-                      ? 'bg-white/10 text-white/80'
-                      : 'text-zinc-700 hover:text-zinc-500'
-                  }`}
-                >
-                  {lang === 'zh' ? 'ZH' : lang === 'en' ? 'EN' : 'JA'}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              {store.currentImageUrl && !store.isLoading && (
-                <button
-                  onClick={analyzeImage}
-                  className="text-[11px] text-zinc-700 hover:text-zinc-400 transition-colors"
-                >
-                  ↺ Reanalyze
-                </button>
-              )}
-              <select
-                value={store.model}
-                onChange={(e) => store.setModel(e.target.value as any)}
-                className="rounded-md border border-white/[0.07] bg-transparent px-2 py-1 text-[10px] text-zinc-600 outline-none cursor-pointer"
-              >
-                <option value="gemini-flash">Gemini</option>
-                <option value="minimax">MiniMax</option>
-              </select>
-            </div>
+      {/* ── Footer ───────────────────────────────────────────────────────── */}
+      {store.activeTab === 'chat' && store.currentImageUrl && (
+        <footer className="border-t border-white/[0.06] px-3 py-2.5 shrink-0">
+          <div className="flex items-center gap-2 mb-2">
+            <select
+              value={store.model}
+              onChange={(e) => store.setModel(e.target.value as any)}
+              style={{
+                borderRadius: 6,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'rgba(255,255,255,0.03)',
+                padding: '3px 6px',
+                fontSize: 10,
+                color: 'rgba(255,255,255,0.4)',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="gemini-flash">Gemini</option>
+              <option value="minimax">MiniMax</option>
+            </select>
+            <span style={{ flex: 1 }} />
           </div>
 
           {/* Chat input */}
-          {store.currentImageUrl && (
-            <form onSubmit={handleSend} className="flex gap-1.5">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask follow-up: change to cyberpunk style..."
-                className="flex-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/80 placeholder:text-zinc-700 outline-none focus:border-white/20 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={!chatInput.trim() || store.isLoading}
-                className="rounded-md bg-white/[0.08] px-3 py-1.5 text-[11px] font-medium text-white/60 disabled:opacity-30 hover:bg-white/[0.12] transition-colors"
-              >
-                →
-              </button>
-            </form>
-          )}
+          <form onSubmit={handleSend} className="flex gap-1.5">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="继续追问：换成赛博朋克风格..."
+              style={{
+                flex: 1,
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.04)',
+                padding: '8px 12px',
+                fontSize: 11,
+                color: 'rgba(255,255,255,0.75)',
+                outline: 'none',
+                fontFamily: 'inherit',
+                transition: 'border-color 0.15s',
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)')}
+              onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}
+            />
+            <button
+              type="submit"
+              disabled={!chatInput.trim() || store.isLoading}
+              style={{
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'rgba(255,255,255,0.06)',
+                padding: '0 12px',
+                fontSize: 13,
+                color: 'rgba(255,255,255,0.5)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                opacity: (!chatInput.trim() || store.isLoading) ? 0.3 : 1,
+              }}
+            >
+              →
+            </button>
+          </form>
         </footer>
       )}
     </div>

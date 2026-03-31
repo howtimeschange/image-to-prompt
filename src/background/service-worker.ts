@@ -95,20 +95,11 @@ const VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models
 const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview'
 const IMAGE_GEN_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent`
 
-// Prompt templates — 莲生方法论：将视觉风格提取为 JSON 结构化数据
+// Prompt templates — 莲生方法论：输出完整 JSON 结构化视觉分析，直接用于 AI 生图
 const SYSTEM_PROMPTS: Record<string, string> = {
-  zh: `将此视觉风格提取为 JSON 结构化数据：颜色、排版、构图、效果...
-
-只输出以下 JSON，不要有任何额外文字或 markdown：
-{"visual_style":{"overall_concept":{"theme":"主题风格名","mood":"氛围","keywords":["关键词1","关键词2","关键词3"]},"color_palette":{"dominant_colors":[{"name":"颜色名","hex":"#XXXXXX","description":"作用"}],"accent_colors":[{"name":"颜色名","hex":"#XXXXXX","description":"作用"}],"background_color":{"name":"颜色名","hex":"#XXXXXX","description":"描述"},"color_harmony":"配色方式"},"typography":{"has_text":false,"text_elements":[]},"composition":{"layout_type":"构图类型","focal_point":"视觉焦点","camera_angle":"机位","depth_of_field":"景深","pose_and_balance":"平衡感"},"effects_and_textures":{"texture":["质感1","质感2"],"lighting":{"type":"光线类型","direction":"方向"},"post_processing_vibe":"后期风格"},"subjects_and_props":{"subject":{"description":"主体","attire":"外观","expression":"神态"},"prop":{"description":"道具/环境"},"interaction":"反差或张力"}},"prompts":{"full_prompt":"整合所有视觉要素的完整英文提示词（直接用于SD/MJ/Nano Banana 2）","full_prompt_zh":"完整中文提示词","negative_prompt":"blurry, deformed, low quality, bad anatomy","negative_prompt_zh":"模糊、变形、低质量","keywords":["标签1","标签2","标签3"]}}`,
-  en: `Extract this visual style as structured JSON data: colors, typography, composition, effects...
-
-Output ONLY the JSON below, no extra text or markdown:
-{"visual_style":{"overall_concept":{"theme":"style name","mood":"mood","keywords":["kw1","kw2","kw3"]},"color_palette":{"dominant_colors":[{"name":"color","hex":"#XXXXXX","description":"role"}],"accent_colors":[{"name":"color","hex":"#XXXXXX","description":"role"}],"background_color":{"name":"color","hex":"#XXXXXX","description":"desc"},"color_harmony":"harmony method"},"typography":{"has_text":false,"text_elements":[]},"composition":{"layout_type":"type","focal_point":"focal","camera_angle":"angle","depth_of_field":"DOF","pose_and_balance":"balance"},"effects_and_textures":{"texture":["texture1"],"lighting":{"type":"type","direction":"direction"},"post_processing_vibe":"vibe"},"subjects_and_props":{"subject":{"description":"desc","attire":"attire","expression":"expression"},"prop":{"description":"prop"},"interaction":"tension"}},"prompts":{"full_prompt":"Complete English prompt for SD/MJ/Nano Banana 2","full_prompt_zh":"中文完整提示词","negative_prompt":"blurry, deformed, low quality","negative_prompt_zh":"模糊、变形、低质量","keywords":["tag1","tag2","tag3"]}}`,
-  ja: `この画像のビジュアルスタイルをJSON構造化データとして抽出してください：色、タイポグラフィ、構図、エフェクト...
-
-以下のJSONのみを出力：
-{"visual_style":{"overall_concept":{"theme":"スタイル","mood":"雰囲気","keywords":["kw1","kw2"]},"color_palette":{"dominant_colors":[{"name":"色","hex":"#XXXXXX","description":"役割"}],"accent_colors":[],"background_color":{"name":"色","hex":"#XXXXXX","description":"説明"},"color_harmony":"調和"},"typography":{"has_text":false,"text_elements":[]},"composition":{"layout_type":"構図","focal_point":"焦点","camera_angle":"アングル","depth_of_field":"被写界深度","pose_and_balance":"バランス"},"effects_and_textures":{"texture":["テクスチャ"],"lighting":{"type":"照明","direction":"方向"},"post_processing_vibe":"後処理"},"subjects_and_props":{"subject":{"description":"説明","attire":"服装","expression":"表情"},"prop":{"description":"小道具"},"interaction":"関係性"}},"prompts":{"full_prompt":"Complete English prompt","full_prompt_zh":"中文完整提示词","negative_prompt":"blurry, deformed","negative_prompt_zh":"模糊、变形","keywords":["tag1","tag2"]}}`,
+  zh: `你是一个专业的视觉分析师。分析这张图片，输出完整的视觉风格 JSON 数据。只输出 JSON，不要任何解释文字，不要 markdown 代码块标记。JSON 必须完整合法。输出结构：{"visual_style_analysis":{"overall_aesthetic":{"theme":"视觉主题","tone":"整体基调","target_vibe":"氛围关键词3-5个"},"color_palette":{"background":{"primary":"#XXXXXX","description":"背景色描述"},"brand_colors":[{"name":"颜色名","hex":"#XXXXXX","usage":"用途"}],"text_colors":{"primary":"#XXXXXX","secondary":"#XXXXXX"},"accent_colors":[{"name":"颜色名","hex":"#XXXXXX","usage":"用途"}],"color_harmony":"配色关系"},"composition":{"layout":"构图类型","focal_point":"视觉焦点","white_space":"留白策略","hierarchy":"视觉层级描述"},"lighting_and_effects":{"lighting_type":"光线类型","shadow":"阴影风格","special_effects":["特效1","特效2"],"post_processing":"后期调色"},"subject_analysis":{"main_subject":"主体描述","supporting_elements":"辅助元素","texture":"主要质感","depth":"空间深度"},"typography_style":{"has_text":true,"font_style":"字体风格","text_layout":"排版描述"},"ai_generation_prompt":{"positive_prompt_en":"完整英文生图提示词，格式：主体描述, 风格词, 光线, 色彩, 质感, --ar 1:1","positive_prompt_zh":"对应中文生图提示词","negative_prompt":"blurry, deformed, bad anatomy, low quality, watermark","style_tags":["标签1","标签2","标签3","标签4","标签5"]}}}`,
+  en: `You are a professional visual analyst. Analyze this image and output complete visual style JSON. Output JSON only, no explanations, no markdown. JSON must be complete and valid. Structure: {"visual_style_analysis":{"overall_aesthetic":{"theme":"Visual theme","tone":"Overall tone","target_vibe":"3-5 atmosphere keywords"},"color_palette":{"background":{"primary":"#XXXXXX","description":"Background description"},"brand_colors":[{"name":"Color","hex":"#XXXXXX","usage":"Usage"}],"text_colors":{"primary":"#XXXXXX","secondary":"#XXXXXX"},"accent_colors":[{"name":"Color","hex":"#XXXXXX","usage":"Usage"}],"color_harmony":"Color relationship"},"composition":{"layout":"Composition type","focal_point":"Focal point","white_space":"White space strategy","hierarchy":"Visual hierarchy"},"lighting_and_effects":{"lighting_type":"Lighting type","shadow":"Shadow style","special_effects":["Effect1","Effect2"],"post_processing":"Color grading"},"subject_analysis":{"main_subject":"Subject description","supporting_elements":"Supporting elements","texture":"Primary texture","depth":"Spatial depth"},"typography_style":{"has_text":true,"font_style":"Font style","text_layout":"Text layout"},"ai_generation_prompt":{"positive_prompt_en":"Complete prompt for MJ/SD/Flux: subject, style words, lighting, color, texture, --ar 1:1","positive_prompt_zh":"Chinese generation prompt","negative_prompt":"blurry, deformed, bad anatomy, low quality, watermark","style_tags":["tag1","tag2","tag3","tag4","tag5"]}}}`,
+  ja: `You are a professional visual analyst. Analyze this image and output complete visual style JSON. Output JSON only, no explanations, no markdown. JSON must be complete and valid. Structure: {"visual_style_analysis":{"overall_aesthetic":{"theme":"Visual theme","tone":"Overall tone","target_vibe":"3-5 atmosphere keywords"},"color_palette":{"background":{"primary":"#XXXXXX","description":"Background description"},"brand_colors":[{"name":"Color","hex":"#XXXXXX","usage":"Usage"}],"text_colors":{"primary":"#XXXXXX","secondary":"#XXXXXX"},"accent_colors":[{"name":"Color","hex":"#XXXXXX","usage":"Usage"}],"color_harmony":"Color relationship"},"composition":{"layout":"Composition type","focal_point":"Focal point","white_space":"White space strategy","hierarchy":"Visual hierarchy"},"lighting_and_effects":{"lighting_type":"Lighting type","shadow":"Shadow style","special_effects":["Effect1","Effect2"],"post_processing":"Color grading"},"subject_analysis":{"main_subject":"Subject description","supporting_elements":"Supporting elements","texture":"Primary texture","depth":"Spatial depth"},"typography_style":{"has_text":true,"font_style":"Font style","text_layout":"Text layout"},"ai_generation_prompt":{"positive_prompt_en":"Complete prompt for MJ/SD/Flux","positive_prompt_zh":"Chinese generation prompt","negative_prompt":"blurry, deformed, bad anatomy, low quality","style_tags":["tag1","tag2","tag3"]}}}`,
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -260,23 +251,24 @@ function parseJSON(text: string) {
     .trim()
   try {
     const parsed = JSON.parse(cleaned)
-    const vs = parsed.visual_style ?? {}
-    const pr = parsed.prompts ?? {}
+    const vsa = parsed.visual_style_analysis ?? parsed.visual_style ?? {}
+    const gen = vsa.ai_generation_prompt ?? vsa.prompts ?? {}
     const structured = {
-      subject: vs.subjects_and_props?.subject?.description ?? '',
-      subject_zh: vs.subjects_and_props?.subject?.description ?? '',
-      style: vs.overall_concept?.theme ?? '',
-      composition: vs.composition?.layout_type ?? '',
-      lighting: vs.effects_and_textures?.lighting?.type ?? '',
-      color_palette: vs.color_palette?.color_harmony ?? '',
-      mood: vs.overall_concept?.mood ?? '',
-      technical: (vs.effects_and_textures?.texture ?? []).join(', '),
-      full_prompt: pr.full_prompt ?? '',
-      full_prompt_zh: pr.full_prompt_zh ?? '',
-      negative_prompt: pr.negative_prompt ?? '',
-      negative_prompt_zh: pr.negative_prompt_zh ?? '',
-      tags: Array.isArray(pr.keywords) ? pr.keywords : [],
-      visual_style: vs,
+      subject: vsa.subject_analysis?.main_subject ?? '',
+      subject_zh: vsa.subject_analysis?.main_subject ?? '',
+      style: vsa.overall_aesthetic?.theme ?? vsa.overall_concept?.theme ?? '',
+      composition: vsa.composition?.layout ?? vsa.composition?.layout_type ?? '',
+      lighting: vsa.lighting_and_effects?.lighting_type ?? '',
+      color_palette: vsa.color_palette?.color_harmony ?? '',
+      mood: vsa.overall_aesthetic?.tone ?? vsa.overall_concept?.mood ?? '',
+      technical: (vsa.lighting_and_effects?.special_effects ?? vsa.effects_and_textures?.texture ?? []).join(', '),
+      full_prompt: gen.positive_prompt_en ?? gen.full_prompt ?? '',
+      full_prompt_zh: gen.positive_prompt_zh ?? gen.full_prompt_zh ?? '',
+      negative_prompt: gen.negative_prompt ?? '',
+      negative_prompt_zh: gen.negative_prompt ?? '',
+      tags: Array.isArray(gen.style_tags) ? gen.style_tags : (Array.isArray(gen.keywords) ? gen.keywords : []),
+      visual_style: vsa,
+      raw_json: JSON.stringify(parsed, null, 2),
     }
     return {
       prompt: structured.full_prompt || text,
