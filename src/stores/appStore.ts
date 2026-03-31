@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ChatMessage, HistoryItem, Language, ModelType, Settings } from '../services/types'
+import type { ChatMessage, HistoryItem, Language, ModelType, Settings, StructuredPrompt } from '../services/types'
 
 interface AppState {
   // Current image
@@ -9,6 +9,7 @@ interface AppState {
   // AI result
   prompt: string
   tags: string[]
+  structured: StructuredPrompt | null
   isLoading: boolean
   error: string | null
 
@@ -31,6 +32,7 @@ interface AppState {
   setImage: (url: string, base64: string | null) => void
   setPrompt: (prompt: string) => void
   setTags: (tags: string[]) => void
+  setStructured: (s: StructuredPrompt | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   addMessage: (msg: ChatMessage) => void
@@ -51,6 +53,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentImageBase64: null,
   prompt: '',
   tags: [],
+  structured: null,
   isLoading: false,
   error: null,
   messages: [],
@@ -69,11 +72,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setImage: (url, base64) => set({ currentImageUrl: url, currentImageBase64: base64 }),
   setPrompt: (prompt) => set({ prompt }),
   setTags: (tags) => set({ tags }),
+  setStructured: (structured) => set({ structured }),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
 
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
-  clearMessages: () => set({ messages: [], prompt: '', tags: '', error: null } as any),
+  clearMessages: () => set({ messages: [], prompt: '', tags: [], structured: null, error: null }),
 
   setLanguage: (language) => {
     set({ language })

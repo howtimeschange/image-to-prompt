@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useAppStore } from '../stores/appStore'
-import { analyzeImageWithGemini, continueChat as geminChat } from '../services/gemini'
+import { analyzeImageWithGemini, continueChat as geminiChat } from '../services/gemini'
 import { analyzeImageWithMinimax } from '../services/minimax'
 import type { ChatMessage } from '../services/types'
 
@@ -17,6 +17,7 @@ export function useAI() {
 
     store.setLoading(true)
     store.setError(null)
+    store.clearMessages()
 
     try {
       let result
@@ -45,26 +46,29 @@ export function useAI() {
 
       store.setPrompt(result.prompt)
       store.setTags(result.tags)
+      if (result.structured) {
+        store.setStructured(result.structured)
+      }
 
       // Add to history
       store.addToHistory({
         id: Date.now().toString(),
         imageUrl: currentImageUrl,
         imageBase64: currentImageBase64,
-        prompt: result.prompt,
+        prompt: result.structured?.full_prompt ?? result.prompt,
         tags: result.tags,
         model,
         createdAt: Date.now(),
+        structured: result.structured,
       })
 
       // Add initial assistant message
       const msg: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: result.prompt,
+        content: result.structured?.full_prompt ?? result.prompt,
         timestamp: Date.now(),
       }
-      store.clearMessages()
       store.addMessage(msg)
     } catch (err) {
       store.setError(err instanceof Error ? err.message : '分析失败，请重试')
@@ -88,12 +92,12 @@ export function useAI() {
       store.setError(null)
 
       try {
-        const allMessages = [
-          ...messages,
-          userMsg,
-        ].map((m) => ({ role: m.role, content: m.content }))
+        const allMessages = [...messages, userMsg].map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
 
-        const reply = await geminChat(
+        const reply = await geminiChat(
           allMessages,
           currentImageBase64,
           currentImageUrl ?? '',
@@ -107,7 +111,6 @@ export function useAI() {
           timestamp: Date.now(),
         }
         store.addMessage(assistantMsg)
-        // Update prompt with latest reply
         store.setPrompt(reply)
       } catch (err) {
         store.setError(err instanceof Error ? err.message : '对话失败')

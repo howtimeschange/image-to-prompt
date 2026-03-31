@@ -29,6 +29,20 @@ export interface HistoryItem {
   tags: string[]
   model: ModelType
   createdAt: number
+  structured?: StructuredPrompt
+}
+
+export interface StructuredPrompt {
+  subject: string
+  style: string
+  composition: string
+  lighting: string
+  color_palette: string
+  mood: string
+  technical: string
+  full_prompt: string
+  negative_prompt: string
+  tags: string[]
 }
 
 export interface Settings {
@@ -41,4 +55,5 @@ export interface Settings {
 export interface AIAnalysisResult {
   prompt: string
   tags: string[]
+  structured?: StructuredPrompt
 }
