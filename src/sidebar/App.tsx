@@ -347,8 +347,9 @@ export default function App() {
                     if (promptLang === 'zh') store.setStructured({ ...s, full_prompt_zh: e.target.value })
                     else store.setStructured({ ...s, full_prompt: e.target.value })
                   }}
-                  rows={5}
+                  rows={6}
                   className="prompt-textarea"
+                  style={{ minHeight: '120px', maxHeight: '360px' }}
                   spellCheck={false}
                 />
 
@@ -404,13 +405,13 @@ export default function App() {
 
             {/* Chat messages */}
             {store.messages.length > 1 && (
-              <div className="space-y-1 px-4 py-3">
+              <div className="space-y-2 px-4 py-3">
                 {store.messages.slice(1).map((msg) => (
                   <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[88%] rounded-xl px-3 py-2 text-[11px] leading-relaxed ${
+                    <div className={`w-full rounded-xl px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-wrap break-words ${
                       msg.role === 'user'
-                        ? 'bg-white/10 text-white/80'
-                        : 'text-zinc-400'
+                        ? 'bg-white/[0.08] text-white/80 max-w-[88%]'
+                        : 'text-zinc-300'
                     }`}>
                       {msg.content}
                     </div>

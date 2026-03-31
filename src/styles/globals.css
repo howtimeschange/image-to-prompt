@@ -76,6 +76,30 @@ body {
   overflow: hidden;
 }
 
+/* Settings panel tokens */
+.settings-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: rgb(113 113 122);
+  display: block;
+}
+
+.settings-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  padding: 9px 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.8);
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+.settings-input::placeholder { color: rgba(255,255,255,0.18); }
+.settings-input:focus { border-color: rgba(255,255,255,0.18); }
+
 /* Dot loader pulse */
 @keyframes pulse {
   0%, 100% { opacity: 0.2; transform: scale(0.9); }
