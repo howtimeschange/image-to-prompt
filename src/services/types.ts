@@ -1,5 +1,3 @@
-// Types shared across the extension
-
 export type ModelType = 'gemini-flash' | 'minimax'
 export type Language = 'zh' | 'en' | 'ja'
 
@@ -21,6 +19,22 @@ export interface Conversation {
   updatedAt: number
 }
 
+export interface StructuredPrompt {
+  subject_zh: string
+  subject: string
+  style: string
+  composition: string
+  lighting: string
+  color_palette: string
+  mood: string
+  technical: string
+  full_prompt: string
+  full_prompt_zh: string
+  negative_prompt: string
+  negative_prompt_zh: string
+  tags: string[]
+}
+
 export interface HistoryItem {
   id: string
   imageUrl: string
@@ -30,19 +44,6 @@ export interface HistoryItem {
   model: ModelType
   createdAt: number
   structured?: StructuredPrompt
-}
-
-export interface StructuredPrompt {
-  subject: string
-  style: string
-  composition: string
-  lighting: string
-  color_palette: string
-  mood: string
-  technical: string
-  full_prompt: string
-  negative_prompt: string
-  tags: string[]
 }
 
 export interface Settings {

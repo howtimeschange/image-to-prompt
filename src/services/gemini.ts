@@ -1,64 +1,69 @@
 import type { AIAnalysisResult, Language } from './types'
 
-// 识图模型：gemini-2.5-flash-preview-04-17（最新多模态 flash）
-const VISION_MODEL = 'gemini-2.5-flash-preview-04-17'
-// 生图模型：imagen-3.0-generate-002（当前 Gemini 系列最新生图）
-// 备用：gemini-2.0-flash-preview-image-generation
-const IMAGE_GEN_MODEL = 'gemini-2.0-flash-preview-image-generation'
+// 识图：Gemini 3 Flash（最新多模态）
+const VISION_MODEL = 'gemini-3-flash-preview'
+// 生图：Nano Banana 2
+const IMAGE_GEN_MODEL = 'gemini-3.1-flash-image-preview'
 
 const VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${VISION_MODEL}:generateContent`
 const IMAGE_GEN_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_GEN_MODEL}:generateContent`
 
-// 结构化 Prompt JSON
+// Prompt 模板：要求同时输出中文描述和英文 Prompt
 const SYSTEM_PROMPTS: Record<string, string> = {
-  zh: `你是世界顶级的 AI 绘图提示词工程师。深度分析图片，输出专业级文生图 JSON。
-
-只输出 JSON，无任何额外文字、markdown 代码块标记：
+  zh: `你是世界顶级的 AI 绘图提示词工程师。深度分析图片，输出以下 JSON（只输出 JSON，无任何额外内容）：
 {
-  "subject": "主体描述，包含人物/物体/场景的详细特征",
-  "style": "艺术风格，如 photorealistic, oil painting, anime, cinematic 等",
-  "composition": "构图方式，如 portrait, wide shot, close-up 等",
-  "lighting": "光线描述，如 golden hour, studio lighting, dramatic shadows 等",
-  "color_palette": "主色调，如 warm tones, monochrome, vibrant 等",
-  "mood": "氛围，如 mysterious, cheerful, melancholic, epic 等",
-  "technical": "技术参数，如 8K, ultra detailed, sharp focus, bokeh 等",
-  "full_prompt": "所有要素整合的完整英文提示词，可直接用于 Stable Diffusion / Midjourney",
-  "negative_prompt": "需要排除的元素，如 blurry, deformed, low quality 等",
+  "subject_zh": "主体的中文描述，详细描述人物/物体/场景的特征",
+  "subject": "Main subject in English, detailed characteristics",
+  "style": "Art style, e.g. photorealistic, oil painting, anime, cinematic",
+  "composition": "Composition, e.g. portrait, wide shot, close-up, rule of thirds",
+  "lighting": "Lighting, e.g. golden hour, studio lighting, rim light, dramatic shadows",
+  "color_palette": "Colors, e.g. warm tones, monochrome, vibrant, pastel",
+  "mood": "Atmosphere, e.g. mysterious, cheerful, melancholic, epic",
+  "technical": "Technical specs, e.g. 8K, ultra detailed, sharp focus, bokeh",
+  "full_prompt": "完整英文提示词，整合以上所有要素，可直接用于 Stable Diffusion / Midjourney",
+  "full_prompt_zh": "完整中文提示词，与 full_prompt 内容一致，但用中文表达，方便理解和修改",
+  "negative_prompt": "Elements to exclude, e.g. blurry, deformed, low quality, bad anatomy",
+  "negative_prompt_zh": "负向提示词的中文版，与 negative_prompt 对应",
   "tags": ["风格标签1", "风格标签2", "风格标签3"]
 }`,
 
-  en: `You are a world-class AI image prompt engineer. Analyze this image deeply and output a professional JSON prompt.
-
-Return ONLY valid JSON, no markdown:
+  en: `You are a world-class AI image prompt engineer. Analyze this image deeply and output ONLY the following JSON (no markdown, no extra text):
 {
-  "subject": "Detailed description of main subjects",
+  "subject_zh": "中文主体描述",
+  "subject": "Main subject in English with detailed characteristics",
   "style": "Art style, e.g. photorealistic, oil painting, anime, cinematic",
   "composition": "Composition, e.g. portrait, wide shot, close-up",
   "lighting": "Lighting, e.g. golden hour, studio lighting, dramatic shadows",
   "color_palette": "Colors, e.g. warm tones, monochrome, vibrant",
   "mood": "Atmosphere, e.g. mysterious, cheerful, melancholic, epic",
-  "technical": "Specs, e.g. 8K, ultra detailed, sharp focus, bokeh",
-  "full_prompt": "Complete English prompt for Stable Diffusion / Midjourney",
+  "technical": "Technical specs, e.g. 8K, ultra detailed, sharp focus, bokeh",
+  "full_prompt": "Complete English prompt combining all elements for SD/MJ",
+  "full_prompt_zh": "中文完整提示词",
   "negative_prompt": "Elements to exclude, e.g. blurry, deformed, low quality",
+  "negative_prompt_zh": "负向提示词中文版",
   "tags": ["tag1", "tag2", "tag3"]
 }`,
 
-  ja: `あなたは世界最高水準のAI画像プロンプトエンジニアです。JSONのみ返してください：
+  ja: `あなたは世界最高水準のAI画像プロンプトエンジニアです。以下のJSONのみを返してください：
 {
-  "subject": "被写体の詳細",
-  "style": "アートスタイル",
-  "composition": "構図",
-  "lighting": "照明",
-  "color_palette": "カラー",
-  "mood": "雰囲気",
-  "technical": "技術仕様",
-  "full_prompt": "完全な英語プロンプト",
-  "negative_prompt": "除外要素",
-  "tags": ["タグ1", "タグ2"]
+  "subject_zh": "中文主体描述",
+  "subject": "English subject description",
+  "style": "Art style",
+  "composition": "Composition",
+  "lighting": "Lighting",
+  "color_palette": "Colors",
+  "mood": "Atmosphere",
+  "technical": "Technical specs",
+  "full_prompt": "Complete English prompt for SD/MJ",
+  "full_prompt_zh": "中文完整提示词",
+  "negative_prompt": "Elements to exclude",
+  "negative_prompt_zh": "负向提示词中文版",
+  "tags": ["tag1", "tag2"]
 }`,
 }
 
 export interface StructuredPrompt {
+  subject_zh: string
   subject: string
   style: string
   composition: string
@@ -67,7 +72,9 @@ export interface StructuredPrompt {
   mood: string
   technical: string
   full_prompt: string
+  full_prompt_zh: string
   negative_prompt: string
+  negative_prompt_zh: string
   tags: string[]
 }
 
@@ -162,7 +169,7 @@ export async function continueChat(
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
 
-// ── 生图（Gemini Image Generation）──────────────────────────────────────────
+// ── 生图（Nano Banana 2）─────────────────────────────────────────────────────
 
 export async function generateImageWithGemini(
   prompt: string,

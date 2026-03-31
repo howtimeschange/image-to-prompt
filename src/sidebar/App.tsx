@@ -10,6 +10,7 @@ export default function App() {
   const [chatInput, setChatInput] = React.useState('')
   const [copied, setCopied] = React.useState<'full' | 'negative' | null>(null)
   const [showStructured, setShowStructured] = React.useState(false)
+  const [promptLang, setPromptLang] = React.useState<'en' | 'zh'>('en')
   const chatEndRef = React.useRef<HTMLDivElement>(null)
 
   // Load storage on mount
@@ -21,6 +22,12 @@ export default function App() {
   React.useEffect(() => {
     const listener = (message: any) => {
       if (message.type === 'IMAGE_SELECTED') {
+        // 切换到新图片时，完整清空上一张图的结果
+        store.clearMessages()
+        store.setPrompt('')
+        store.setTags([])
+        store.setStructured(null)
+        store.setError(null)
         store.setImage(message.url, message.base64 ?? null)
         store.setActiveTab('chat')
       }
@@ -29,11 +36,17 @@ export default function App() {
 
     // Poll storage in case message was sent before sidebar opened
     const poll = setInterval(async () => {
-      const data = await chrome.storage.local.get(['pendingImage', 'currentImageUrl', 'currentImageBase64'])
+      const data = await chrome.storage.local.get(['pendingImage', 'pendingClear', 'currentImageUrl', 'currentImageBase64'])
       if (data.pendingImage && data.currentImageUrl) {
+        // 切换图片时清空旧内容
+        store.clearMessages()
+        store.setPrompt('')
+        store.setTags([])
+        store.setStructured(null)
+        store.setError(null)
         store.setImage(data.currentImageUrl, data.currentImageBase64 ?? null)
         store.setActiveTab('chat')
-        chrome.storage.local.remove(['pendingImage'])
+        chrome.storage.local.remove(['pendingImage', 'pendingClear'])
       }
     }, 500)
 
@@ -55,9 +68,16 @@ export default function App() {
   }, [store.messages])
 
   const handleCopy = (type: 'full' | 'negative') => {
-    const text = type === 'full'
-      ? (store.structured?.full_prompt ?? store.prompt)
-      : (store.structured?.negative_prompt ?? '')
+    let text = ''
+    if (type === 'full') {
+      text = promptLang === 'zh'
+        ? (store.structured?.full_prompt_zh ?? store.structured?.full_prompt ?? store.prompt)
+        : (store.structured?.full_prompt ?? store.prompt)
+    } else {
+      text = promptLang === 'zh'
+        ? (store.structured?.negative_prompt_zh ?? store.structured?.negative_prompt ?? '')
+        : (store.structured?.negative_prompt ?? '')
+    }
     if (!text) return
     navigator.clipboard.writeText(text)
     setCopied(type)
@@ -169,7 +189,24 @@ export default function App() {
             {/* Structured Prompt Result */}
             {s && (
               <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
-                {/* Full Prompt - main display */}
+                {/* Lang tabs */}
+                <div className="flex gap-1 p-2 pb-0">
+                  {(['en', 'zh'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setPromptLang(lang)}
+                      className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors ${
+                        promptLang === lang
+                          ? 'bg-indigo-500/30 text-indigo-300'
+                          : 'text-gray-600 hover:text-gray-400'
+                      }`}
+                    >
+                      {lang === 'en' ? 'EN Prompt' : '中文 Prompt'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Full Prompt (editable) */}
                 <div className="p-3 border-b border-white/8">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-indigo-400">✨ Full Prompt</span>
@@ -185,15 +222,21 @@ export default function App() {
                     </button>
                   </div>
                   <textarea
-                    value={s.full_prompt}
-                    onChange={(e) => store.setStructured({ ...s, full_prompt: e.target.value })}
+                    value={promptLang === 'zh' ? (s.full_prompt_zh ?? s.full_prompt) : s.full_prompt}
+                    onChange={(e) => {
+                      if (promptLang === 'zh') {
+                        store.setStructured({ ...s, full_prompt_zh: e.target.value })
+                      } else {
+                        store.setStructured({ ...s, full_prompt: e.target.value })
+                      }
+                    }}
                     className="w-full resize-none bg-transparent text-xs text-gray-200 outline-none leading-relaxed"
                     rows={4}
                   />
                 </div>
 
                 {/* Negative Prompt */}
-                {s.negative_prompt && (
+                {(s.negative_prompt || s.negative_prompt_zh) && (
                   <div className="p-3 border-b border-white/8 bg-red-500/5">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs font-medium text-red-400">❌ Negative Prompt</span>
@@ -208,7 +251,9 @@ export default function App() {
                         {copied === 'negative' ? '✓' : '📋'}
                       </button>
                     </div>
-                    <p className="text-xs text-red-300/80 leading-relaxed">{s.negative_prompt}</p>
+                    <p className="text-xs text-red-300/80 leading-relaxed">
+                      {promptLang === 'zh' ? (s.negative_prompt_zh ?? s.negative_prompt) : s.negative_prompt}
+                    </p>
                   </div>
                 )}
 
@@ -224,7 +269,8 @@ export default function App() {
                 {showStructured && (
                   <div className="border-t border-white/8 p-3 grid grid-cols-2 gap-2">
                     {[
-                      { label: '主体', key: 'subject', icon: '👤' },
+                      { label: '主体 (EN)', key: 'subject', icon: '👤' },
+                      { label: '主体 (中文)', key: 'subject_zh', icon: '👤' },
                       { label: '风格', key: 'style', icon: '🎨' },
                       { label: '构图', key: 'composition', icon: '📐' },
                       { label: '光线', key: 'lighting', icon: '💡' },
