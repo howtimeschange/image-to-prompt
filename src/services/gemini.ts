@@ -14,134 +14,161 @@ const IMAGE_GEN_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/mod
  * JSON 本身即为 prompt，无需再提取单独字段
  */
 
-const STYLE_EXTRACTION_PROMPT_ZH = `你是一个专业的视觉分析师。分析这张图片，输出完整的视觉风格 JSON 数据。
+const STYLE_EXTRACTION_PROMPT_ZH = `你是一个专业视觉分析师，擅长将图像风格拆解为可被 AI 精确复现的结构化数据。
 
-【输出要求】
-- 只输出 JSON，不要任何解释文字，不要 markdown 代码块标记
-- JSON 必须完整、合法、可被直接 parse
-- 所有字段都需要填写，不要留空
+分析这张图片，输出完整的视觉风格 JSON 数据存档。
 
-输出以下 JSON 结构：
+【核心原则】
+- 这个 JSON 是"风格克隆档案"，不是提示词本身
+- 后续使用方式：把这个 JSON 贴给 AI 模型，说"请按照此 JSON 风格，生成一张[新主题]的图像"
+- 因此每个字段都必须足够精确，能让 AI 模型还原原图的视觉感受
+- 只输出 JSON，不要任何解释文字，不要 markdown 代码块
+
+输出以下 JSON 结构（字段说明已内嵌为注释，实际输出不含注释）：
 {
-  "visual_style_analysis": {
-    "overall_aesthetic": {
-      "theme": "视觉主题（如：现代极简科技、赛博朋克霓虹、复古胶片摄影）",
-      "tone": "整体基调（如：专业干净、暗黑魔幻、温暖治愈）",
-      "target_vibe": "目标氛围关键词，3-5个，用于 prompt（如：cinematic, moody, editorial）"
+  "visual_style": {
+    "overall_concept": {
+      "theme": "核心主题风格名（中英文，如：荒诞喜剧 / Absurdist Humor）",
+      "mood": "氛围描述（如：严肃的滑稽、冷幽默、复古怀旧）",
+      "keywords": ["关键词1", "关键词2", "关键词3", "关键词4", "关键词5"]
     },
     "color_palette": {
-      "background": {
-        "primary": "#XXXXXX",
-        "description": "背景色描述和质感"
-      },
-      "brand_colors": [
-        { "name": "颜色名", "hex": "#XXXXXX", "usage": "在画面中的用途" }
+      "dominant_colors": [
+        { "name": "颜色名（中英）", "hex": "#XXXXXX", "description": "该颜色占多少面积、用在哪里、视觉作用" }
       ],
-      "text_colors": {
-        "primary": "#XXXXXX",
-        "secondary": "#XXXXXX"
-      },
       "accent_colors": [
-        { "name": "颜色名", "hex": "#XXXXXX", "usage": "点缀用途" }
+        { "name": "颜色名（中英）", "hex": "#XXXXXX", "description": "点缀色在哪里出现、视觉作用" }
       ],
-      "color_harmony": "配色关系（如：高反差对比、类比色系、单色渐变）"
+      "background_color": { "name": "颜色名", "hex": "#XXXXXX", "description": "背景色质感描述" },
+      "color_harmony": "配色和谐方式（高反差对比 / 类比配色 / 单色渐变 / 互补色等，附简短解释）"
+    },
+    "typography": {
+      "has_text": true,
+      "text_elements": [
+        {
+          "content": "文字内容",
+          "location": "在画面中的位置",
+          "font_style": {
+            "family": "字体类别（衬线/无衬线/手写/展示体）",
+            "characteristics": "具体特征描述",
+            "color": "颜色",
+            "effect": "特效（如：涂装质感、发光、阴影）"
+          }
+        }
+      ]
     },
     "composition": {
-      "layout": "构图类型（如：中心对称、三分法、满版出血）",
-      "focal_point": "视觉焦点位置和内容",
-      "white_space": "留白策略（如：大量留白极简、满版密集）",
-      "hierarchy": "视觉层级描述（主体→副标题→说明文字）"
+      "layout_type": "构图类型（中心对称 / 三分法 / 对角线 / 满版出血 / 框架式等）",
+      "focal_point": "视觉焦点：位置 + 内容 + 为什么吸引眼球",
+      "camera_angle": "机位描述（低平视角 / 俯视 / 仰视 / 平视 / 特写等）",
+      "depth_of_field": "景深（浅景深背景虚化Bokeh / 全清晰 / 极浅前景虚化等）",
+      "pose_and_balance": "主体姿势和画面平衡感描述"
     },
-    "lighting_and_effects": {
-      "lighting_type": "光线类型（如：柔光漫射、硬光棚拍、自然侧光）",
-      "shadow": "阴影风格",
-      "special_effects": ["特效1（如：景深虚化）", "特效2（如：胶片颗粒）"],
-      "post_processing": "后期调色风格（如：低饱和胶片感、高对比HDR）"
+    "effects_and_textures": {
+      "texture": ["质感1（如：浓重胶片颗粒感 Heavy Film Grain）", "质感2（如：老照片柔焦 Soft Focus）"],
+      "lighting": {
+        "type": "光线类型（自然光漫反射 / 棚拍硬光 / 侧逆光 / 低调暗光等）",
+        "direction": "光源方向和投影描述"
+      },
+      "post_processing_vibe": "后期调色风格（如：复古胶片扫描感、低饱和冷色调、HDR高对比、色差效果等）"
     },
-    "subject_analysis": {
-      "main_subject": "主体描述",
-      "supporting_elements": "辅助元素描述",
-      "texture": "主要质感（如：哑光金属、皮革纹理）",
-      "depth": "空间深度感描述"
+    "subjects_and_props": {
+      "subject": {
+        "description": "主体是什么，外观特征细节",
+        "attire": "服装/外观/材质细节",
+        "expression": "表情/神态/动作细节"
+      },
+      "prop": { "description": "道具或环境的细节描述" },
+      "interaction": "主体与道具/环境之间的关系、张力或反差（这是幽默感/情绪的来源）"
     },
-    "typography_style": {
-      "has_text": true,
-      "font_style": "字体风格（如：无衬线现代、粗体展示、手写风格）",
-      "text_layout": "文字排版描述"
-    },
-    "ai_generation_prompt": {
-      "positive_prompt_en": "完整英文生图提示词，直接用于 Midjourney/Stable Diffusion/Flux，包含：主体描述 + 风格词 + 光线 + 色彩 + 质感 + 技术参数，格式：主体, 风格词1, 风格词2, 光线描述, 色彩描述, --ar 1:1",
-      "positive_prompt_zh": "对应中文生图提示词",
-      "negative_prompt": "negative prompt: blurry, deformed, bad anatomy, low quality, watermark, text overlay",
-      "style_tags": ["风格标签1", "风格标签2", "风格标签3", "风格标签4", "风格标签5"]
+    "reproduction_prompt": {
+      "usage_note": "将整个 visual_style 字段贴给 AI 模型，说：请严格按照以下 JSON 数据中描述的视觉风格、色彩、构图和光影，生成一张【替换为你的新主题】的图像：[粘贴 JSON]",
+      "style_essence_en": "一句话总结该风格的英文精髓（用于单独作为提示词前缀，如：absurdist humor photography, vintage film grain, low-angle street shot, high contrast dark tones）",
+      "style_essence_zh": "一句话总结该风格的中文精髓",
+      "negative_prompt": "blurry, deformed, bad anatomy, low quality, watermark, text overlay, overexposed, chromatic aberration",
+      "style_tags": ["标签1", "标签2", "标签3", "标签4", "标签5", "标签6"]
     }
   }
 }`
 
-const STYLE_EXTRACTION_PROMPT_EN = `You are a professional visual analyst. Analyze this image and output a complete visual style JSON.
+const STYLE_EXTRACTION_PROMPT_EN = `You are a professional visual analyst specializing in deconstructing image styles into structured data that AI models can precisely replicate.
 
-REQUIREMENTS:
+Analyze this image and output a complete visual style JSON archive.
+
+KEY PRINCIPLE:
+- This JSON is a "style clone archive", NOT a generation prompt itself
+- Usage: paste this JSON to an AI model with: "Please generate an image of [new subject] strictly following the visual style, colors, composition and lighting described in this JSON: [paste JSON]"
+- Every field must be precise enough for an AI to reconstruct the original visual feeling
 - Output JSON only, no explanations, no markdown code blocks
-- All fields must be filled, no empty values
 
 Output this JSON structure:
 {
-  "visual_style_analysis": {
-    "overall_aesthetic": {
-      "theme": "Visual theme (e.g. Modern Minimalist Tech, Cyberpunk Neon, Vintage Film Photography)",
-      "tone": "Overall tone (e.g. Professional Clean, Dark Fantasy, Warm Healing)",
-      "target_vibe": "3-5 atmosphere keywords for prompt (e.g. cinematic, moody, editorial)"
+  "visual_style": {
+    "overall_concept": {
+      "theme": "Core theme name (e.g. Absurdist Humor / 荒诞喜剧)",
+      "mood": "Mood description (e.g. deadpan comedy, cold humor, vintage nostalgia)",
+      "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
     },
     "color_palette": {
-      "background": {
-        "primary": "#XXXXXX",
-        "description": "Background color description and texture"
-      },
-      "brand_colors": [
-        { "name": "Color name", "hex": "#XXXXXX", "usage": "Usage in composition" }
+      "dominant_colors": [
+        { "name": "Color name", "hex": "#XXXXXX", "description": "Coverage area, placement, visual role" }
       ],
-      "text_colors": {
-        "primary": "#XXXXXX",
-        "secondary": "#XXXXXX"
-      },
       "accent_colors": [
-        { "name": "Color name", "hex": "#XXXXXX", "usage": "Accent purpose" }
+        { "name": "Color name", "hex": "#XXXXXX", "description": "Where it appears, visual impact" }
       ],
-      "color_harmony": "Color relationship (e.g. High Contrast, Analogous, Monochromatic gradient)"
+      "background_color": { "name": "Color name", "hex": "#XXXXXX", "description": "Background texture and feel" },
+      "color_harmony": "Color harmony method (High Contrast / Analogous / Monochromatic / Complementary, with brief explanation)"
+    },
+    "typography": {
+      "has_text": true,
+      "text_elements": [
+        {
+          "content": "text content",
+          "location": "position in frame",
+          "font_style": {
+            "family": "font category (serif/sans-serif/handwritten/display)",
+            "characteristics": "specific traits",
+            "color": "color",
+            "effect": "effects (paint finish, glow, shadow, etc.)"
+          }
+        }
+      ]
     },
     "composition": {
-      "layout": "Composition type (e.g. Center-weighted, Rule of thirds, Full-bleed)",
-      "focal_point": "Focal point position and content",
-      "white_space": "White space strategy (e.g. Generous negative space, Dense full coverage)",
-      "hierarchy": "Visual hierarchy (Hero → Subheading → Body copy)"
+      "layout_type": "Composition type (Center-weighted / Rule of thirds / Diagonal / Full-bleed / Frame-within-frame)",
+      "focal_point": "Focal point: position + content + why it draws attention",
+      "camera_angle": "Camera angle (Low-level / Bird's eye / Worm's eye / Eye-level / Close-up)",
+      "depth_of_field": "DOF (Shallow DOF with bokeh / Deep focus / Extreme shallow foreground blur)",
+      "pose_and_balance": "Subject pose and compositional balance"
     },
-    "lighting_and_effects": {
-      "lighting_type": "Lighting type (e.g. Soft diffused, Hard studio, Natural side light)",
-      "shadow": "Shadow style",
-      "special_effects": ["Effect 1 (e.g. Shallow DOF bokeh)", "Effect 2 (e.g. Film grain)"],
-      "post_processing": "Color grading (e.g. Desaturated film look, High-contrast HDR)"
+    "effects_and_textures": {
+      "texture": ["Texture 1 (e.g. Heavy Film Grain / Noise)", "Texture 2 (e.g. Soft Focus / Vintage Lens)"],
+      "lighting": {
+        "type": "Lighting type (Natural diffused / Hard studio / Side backlight / Low-key dark)",
+        "direction": "Light source direction and shadow description"
+      },
+      "post_processing_vibe": "Color grading (e.g. Vintage film scan, Desaturated cool tones, HDR high contrast, chromatic aberration)"
     },
-    "subject_analysis": {
-      "main_subject": "Main subject description",
-      "supporting_elements": "Supporting elements",
-      "texture": "Primary texture (e.g. Matte metal, Leather grain)",
-      "depth": "Spatial depth description"
+    "subjects_and_props": {
+      "subject": {
+        "description": "What the subject is, detailed visual characteristics",
+        "attire": "Clothing/appearance/material details",
+        "expression": "Expression/demeanor/gesture details"
+      },
+      "prop": { "description": "Detailed prop or environment description" },
+      "interaction": "Relationship, tension or contrast between subject and prop/environment (source of humor or emotion)"
     },
-    "typography_style": {
-      "has_text": true,
-      "font_style": "Font style (e.g. Sans-serif modern, Bold display, Handwritten)",
-      "text_layout": "Text layout description"
-    },
-    "ai_generation_prompt": {
-      "positive_prompt_en": "Complete English prompt for Midjourney/Stable Diffusion/Flux: subject description + style words + lighting + color + texture + technical params, format: subject, style1, style2, lighting, color, --ar 1:1",
-      "positive_prompt_zh": "Corresponding Chinese generation prompt",
-      "negative_prompt": "negative prompt: blurry, deformed, bad anatomy, low quality, watermark, text overlay",
-      "style_tags": ["style tag1", "style tag2", "style tag3", "style tag4", "style tag5"]
+    "reproduction_prompt": {
+      "usage_note": "Paste the entire visual_style field to an AI model with: Please generate an image of [YOUR NEW SUBJECT] strictly following the visual style, colors, composition and lighting described in this JSON: [paste JSON]",
+      "style_essence_en": "One-sentence English style essence (standalone prompt prefix, e.g.: absurdist humor photography, vintage film grain, low-angle street shot, high contrast dark tones)",
+      "style_essence_zh": "One-sentence Chinese style essence",
+      "negative_prompt": "blurry, deformed, bad anatomy, low quality, watermark, text overlay, overexposed, chromatic aberration",
+      "style_tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"]
     }
   }
 }`
 
-const STYLE_EXTRACTION_PROMPT_JA = STYLE_EXTRACTION_PROMPT_EN
+const STYLE_EXTRACTION_PROMPT_JA = STYLE_EXTRACTION_PROMPT_EN  // fallback to EN for JA
 
 const PROMPTS: Record<string, string> = {
   zh: STYLE_EXTRACTION_PROMPT_ZH,
@@ -376,24 +403,29 @@ function parseStructuredResponse(text: string): AIAnalysisResult {
 
   try {
     const parsed = JSON.parse(cleaned)
-    const vsa = parsed.visual_style_analysis ?? parsed.visual_style ?? {}
-    const gen = vsa.ai_generation_prompt ?? vsa.prompts ?? {}
+    // Support both new schema (visual_style) and legacy (visual_style_analysis)
+    const vs = parsed.visual_style ?? parsed.visual_style_analysis ?? {}
+    const rp = vs.reproduction_prompt ?? vs.ai_generation_prompt ?? vs.prompts ?? {}
 
     const structured: StructuredPrompt = {
-      subject: vsa.subject_analysis?.main_subject ?? vsa.subjects_and_props?.subject?.description ?? '',
-      subject_zh: vsa.subject_analysis?.main_subject ?? '',
-      style: vsa.overall_aesthetic?.theme ?? vsa.overall_concept?.theme ?? '',
-      composition: vsa.composition?.layout ?? vsa.composition?.layout_type ?? '',
-      lighting: vsa.lighting_and_effects?.lighting_type ?? vsa.effects_and_textures?.lighting?.type ?? '',
-      color_palette: vsa.color_palette?.color_harmony ?? '',
-      mood: vsa.overall_aesthetic?.tone ?? vsa.overall_concept?.mood ?? '',
-      technical: (vsa.lighting_and_effects?.special_effects ?? vsa.effects_and_textures?.texture ?? []).join(', '),
-      full_prompt: gen.positive_prompt_en ?? gen.full_prompt ?? '',
-      full_prompt_zh: gen.positive_prompt_zh ?? gen.full_prompt_zh ?? '',
-      negative_prompt: gen.negative_prompt ?? '',
-      negative_prompt_zh: gen.negative_prompt ?? '',
-      tags: Array.isArray(gen.style_tags) ? gen.style_tags : (Array.isArray(gen.keywords) ? gen.keywords : []),
-      visual_style: vsa,
+      subject: vs.subjects_and_props?.subject?.description ?? vs.subject_analysis?.main_subject ?? '',
+      subject_zh: vs.subjects_and_props?.subject?.description ?? vs.subject_analysis?.main_subject ?? '',
+      style: vs.overall_concept?.theme ?? vs.overall_aesthetic?.theme ?? '',
+      composition: vs.composition?.layout_type ?? vs.composition?.layout ?? '',
+      lighting: vs.effects_and_textures?.lighting?.type ?? vs.lighting_and_effects?.lighting_type ?? '',
+      color_palette: vs.color_palette?.color_harmony ?? '',
+      mood: vs.overall_concept?.mood ?? vs.overall_aesthetic?.tone ?? '',
+      technical: [
+        ...(vs.effects_and_textures?.texture ?? []),
+        ...(vs.lighting_and_effects?.special_effects ?? []),
+      ].join(', '),
+      // style_essence_en: one-liner style summary for quick copy
+      full_prompt: rp.style_essence_en ?? rp.positive_prompt_en ?? rp.full_prompt ?? '',
+      full_prompt_zh: rp.style_essence_zh ?? rp.positive_prompt_zh ?? rp.full_prompt_zh ?? '',
+      negative_prompt: rp.negative_prompt ?? '',
+      negative_prompt_zh: rp.negative_prompt ?? '',
+      tags: Array.isArray(rp.style_tags) ? rp.style_tags : (Array.isArray(rp.keywords) ? rp.keywords : []),
+      visual_style: vs,
       raw_json: JSON.stringify(parsed, null, 2),
     }
 

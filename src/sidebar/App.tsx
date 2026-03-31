@@ -139,6 +139,133 @@ function ChatBubble({ role, content }: { role: 'user' | 'assistant'; content: st
   )
 }
 
+// ── Generate command box (莲生用法：JSON + 新主题 → 完整生图指令) ─────────────
+
+function GenerateCommandBox({ rawJson }: { rawJson: string }) {
+  const [subject, setSubject] = React.useState('')
+  const [copied, setCopied] = React.useState(false)
+  const [lang, setLang] = React.useState<'zh' | 'en'>('zh')
+
+  const buildCommand = (theme: string) => {
+    if (lang === 'zh') {
+      return `请严格按照以下 JSON 数据中描述的视觉风格、色彩、构图和光影，生成一张「${theme || '你的新主题'}」的图像：\n\n${rawJson}`
+    }
+    return `Please generate an image of "${theme || 'your new subject'}" strictly following the visual style, colors, composition and lighting described in this JSON:\n\n${rawJson}`
+  }
+
+  const handleCopy = () => {
+    if (!subject.trim()) return
+    navigator.clipboard.writeText(buildCommand(subject))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const preview = subject.trim()
+    ? buildCommand(subject).slice(0, 120) + '...'
+    : null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Lang toggle */}
+      <div style={{ display: 'flex', gap: 4 }}>
+        {(['zh', 'en'] as const).map((l) => (
+          <button
+            key={l}
+            onClick={() => setLang(l)}
+            style={{
+              padding: '3px 8px',
+              borderRadius: 5,
+              border: `1px solid ${lang === l ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.06)'}`,
+              background: lang === l ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: lang === l ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)',
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            {l === 'zh' ? '中文指令' : 'EN Prompt'}
+          </button>
+        ))}
+      </div>
+
+      {/* Subject input */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder={lang === 'zh' ? '输入新主题，如：一只橘猫骑摩托车' : 'New subject, e.g. a corgi riding a motorcycle'}
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.09)',
+            background: 'rgba(255,255,255,0.04)',
+            padding: '8px 10px',
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.75)',
+            outline: 'none',
+            fontFamily: 'inherit',
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)')}
+          onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)')}
+          onKeyDown={(e) => { if (e.key === 'Enter' && subject.trim()) handleCopy() }}
+        />
+        <button
+          onClick={handleCopy}
+          disabled={!subject.trim()}
+          style={{
+            padding: '0 12px',
+            borderRadius: 8,
+            border: 'none',
+            background: copied
+              ? 'rgba(22,163,74,0.85)'
+              : subject.trim()
+              ? 'rgba(99,102,241,0.9)'
+              : 'rgba(255,255,255,0.06)',
+            color: subject.trim() ? '#fff' : 'rgba(255,255,255,0.25)',
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: subject.trim() ? 'pointer' : 'default',
+            transition: 'all 0.15s',
+            whiteSpace: 'nowrap',
+            boxShadow: subject.trim() && !copied ? '0 2px 12px rgba(99,102,241,0.2)' : 'none',
+          }}
+        >
+          {copied ? '✓ 已复制' : '复制指令'}
+        </button>
+      </div>
+
+      {/* Preview snippet */}
+      {preview && (
+        <p style={{
+          fontSize: 10,
+          color: 'rgba(255,255,255,0.2)',
+          lineHeight: 1.6,
+          fontFamily: '"SF Mono", monospace',
+          background: 'rgba(255,255,255,0.025)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          borderRadius: 6,
+          padding: '6px 8px',
+          wordBreak: 'break-word',
+        }}>
+          {preview}
+        </p>
+      )}
+
+      {/* Hint */}
+      <p style={{
+        fontSize: 10,
+        color: 'rgba(255,255,255,0.15)',
+        lineHeight: 1.5,
+      }}>
+        将复制的指令直接粘贴给 Gemini 3.1 / Midjourney / Flux 即可生成同风格新图
+      </p>
+    </div>
+  )
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -413,37 +540,19 @@ export default function App() {
               </div>
             )}
 
-            {/* Positive prompt quick-copy */}
-            {s?.full_prompt && (
-              <div className="border-b border-white/[0.06] px-4 py-3 shrink-0">
-                <p className="label-xs mb-2">Positive Prompt</p>
+            {/* ── 生图指令区 —— 莲生用法：JSON + 主题模板 ── */}
+            {hasResult && rawJson && (
+              <div className="border-b border-white/[0.06] px-4 py-4">
+                <p className="label-xs mb-2">生图指令生成器</p>
                 <p style={{
-                  fontSize: 11,
-                  lineHeight: 1.7,
-                  color: 'rgba(255,255,255,0.55)',
-                  fontFamily: '"SF Mono", monospace',
-                  wordBreak: 'break-word',
+                  fontSize: 10,
+                  color: 'rgba(255,255,255,0.22)',
+                  lineHeight: 1.6,
+                  marginBottom: 10,
                 }}>
-                  {s.full_prompt}
+                  输入新主题，一键生成可直接贴给 Gemini / Midjourney / Flux 的完整生图指令
                 </p>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(s.full_prompt); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-                  style={{
-                    marginTop: 8,
-                    width: '100%',
-                    padding: '7px 0',
-                    borderRadius: 8,
-                    border: '1px solid rgba(255,255,255,0.07)',
-                    background: 'rgba(255,255,255,0.04)',
-                    color: 'rgba(255,255,255,0.4)',
-                    fontSize: 11,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {copied ? '✓ Copied' : 'Copy Prompt'}
-                </button>
+                <GenerateCommandBox rawJson={rawJson} />
               </div>
             )}
 
